@@ -1,0 +1,44 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "nosp"
+version = "0.1.0"
+description = "NOSP - Null OS Security Program: Next-gen privacy-first security monitor"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "NOSP Team" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Rust",
+]
+
+dependencies = [
+    "streamlit>=1.30.0",
+    "pandas>=2.0.0",
+    "ollama>=0.1.0",
+    "sqlite3-to-mysql>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "maturin>=1.4",
+    "pytest>=7.0",
+    "black>=23.0",
+]
+
+[tool.maturin]
+python-source = "python"
+module-name = "nosp.nosp_core"

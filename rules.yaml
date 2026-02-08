@@ -1,0 +1,194 @@
+# NOSP vOMEGA - Security Rules Configuration
+# 
+# Syntax:
+#   conditions:
+#     - field: <event_field_name>
+#       operator: eq|ne|contains|regex|gt|lt
+#       value: <comparison_value>
+#   logic: and|or
+#   actions: [kill, suspend, quarantine, alert, block_ip]
+
+rules:
+  - name: Encoded PowerShell Command
+    description: Detects PowerShell with encoded commands (common obfuscation)
+    enabled: true
+    severity: critical
+    logic: and
+    conditions:
+      - field: process_name
+        operator: contains
+        value: powershell
+      - field: cmdline
+        operator: contains
+        value: "-enc"
+    actions:
+      - kill
+      - alert
+      - quarantine
+    metadata:
+      mitre: T1059.001
+      category: execution
+
+  - name: cmd.exe from Office Application
+    description: Office application spawning cmd.exe (macro attack indicator)
+    enabled: true
+    severity: high
+    logic: and
+    conditions:
+      - field: parent_name
+        operator: regex
+        value: "(winword|excel|powerpnt|outlook)"
+      - field: process_name
+        operator: eq
+        value: cmd.exe
+    actions:
+      - suspend
+      - alert
+    metadata:
+      mitre: T1566.001
+      category: initial_access
+
+  - name: High Risk Score Detection
+    description: Any process with risk score above 80
+    enabled: true
+    severity: high
+    logic: and
+    conditions:
+      - field: risk_score
+        operator: gt
+        value: 80
+    actions:
+      - alert
+    metadata:
+      category: general
+
+  - name: Suspicious Network Connection
+    description: Connection to high-risk destination countries
+    enabled: true
+    severity: medium
+    logic: or
+    conditions:
+      - field: destination_country
+        operator: eq
+        value: CN
+      - field: destination_country
+        operator: eq
+        value: RU
+      - field: destination_country
+        operator: eq
+        value: KP
+    actions:
+      - alert
+      - block_ip
+    metadata:
+      category: network
+
+  - name: Mimikatz Credential Dumper
+    description: Known credential dumping tool detected
+    enabled: true
+    severity: critical
+    logic: or
+    conditions:
+      - field: process_name
+        operator: contains
+        value: mimikatz
+      - field: cmdline
+        operator: contains
+        value: sekurlsa
+      - field: cmdline
+        operator: contains
+        value: "lsadump"
+    actions:
+      - kill
+      - quarantine
+      - alert
+    metadata:
+      mitre: T1003
+      category: credential_access
+
+  - name: WMI Process Spawning
+    description: WMI being used to spawn processes (lateral movement)
+    enabled: true
+    severity: high
+    logic: and
+    conditions:
+      - field: parent_name
+        operator: contains
+        value: wmiprvse
+      - field: process_name
+        operator: ne
+        value: werfault.exe
+    actions:
+      - alert
+    metadata:
+      mitre: T1047
+      category: execution
+
+  - name: PsExec Lateral Movement
+    description: PsExec remote execution tool detected
+    enabled: true
+    severity: high
+    logic: or
+    conditions:
+      - field: process_name
+        operator: contains
+        value: psexec
+      - field: cmdline
+        operator: contains
+        value: "\\\\127.0.0.1\\ADMIN$"
+    actions:
+      - suspend
+      - alert
+    metadata:
+      mitre: T1570
+      category: lateral_movement
+
+  - name: Suspicious TMP Execution
+    description: Executable running from TEMP directory
+    enabled: true
+    severity: medium
+    logic: and
+    conditions:
+      - field: image
+        operator: regex
+        value: "\\\\(Temp|TMP)\\\\.+\\.exe"
+    actions:
+      - alert
+    metadata:
+      category: suspicious_location
+
+  - name: Registry Run Key Modification
+    description: Persistence via registry autostart keys
+    enabled: true
+    severity: high
+    logic: and
+    conditions:
+      - field: cmdline
+        operator: regex
+        value: "HKLM\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run"
+    actions:
+      - alert
+    metadata:
+      mitre: T1547.001
+      category: persistence
+
+  - name: Living Off the Land Binary (LOLBin)
+    description: Abuse of legitimate Windows binaries
+    enabled: true
+    severity: medium
+    logic: or
+    conditions:
+      - field: process_name
+        operator: eq
+        value: certutil.exe
+      - field: process_name
+        operator: eq
+        value: bitsadmin.exe
+      - field: process_name
+        operator: eq
+        value: mshta.exe
+    actions:
+      - alert
+    metadata:
+      mitre: T1218
+      category: defense_evasion

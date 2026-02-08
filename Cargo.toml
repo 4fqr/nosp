@@ -1,0 +1,42 @@
+[package]
+name = "nosp_core"
+version = "0.1.0"
+edition = "2021"
+authors = ["NOSP Team"]
+description = "High-performance Rust core for NOSP Security Monitor"
+
+[lib]
+name = "nosp_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py38"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+windows = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_System_EventLog",
+    "Win32_Security",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Threading",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_Storage_FileSystem",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_Ndis",
+    "Win32_System_Registry",
+    "Win32_Security_Cryptography",
+] }
+chrono = "0.4"
+thiserror = "1.0"
+log = "0.4"
+zip = "0.6"
+aes = "0.8"
+sha2 = "0.10"
+hex = "0.4"
+rand = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
