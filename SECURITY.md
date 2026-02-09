@@ -18,9 +18,9 @@ We release patches for security vulnerabilities. Which versions are eligible for
 
 ### Where to Report
 
-**Primary**: Email security@nosp.dev  
-**Alternate**: nosp@4fqr.dev  
-**PGP Key**: [Download public key](https://nosp.dev/pgp-key.asc) (fingerprint: `ABCD 1234 EFGH 5678`)
+**Primary**: Email 4fqr5@atomicmail.io  
+**Alternate Discord**: https://dsc.gg/nullsec (DM admins)  
+**PGP Key**: Available on request
 
 ### What to Include
 
@@ -285,7 +285,7 @@ NOSP aims to comply with:
 We follow the CERT Guide to Coordinated Vulnerability Disclosure:
 
 ### Timeline
-1. **Day 0**: Vulnerability reported to security@nosp.dev
+1. **Day 0**: Vulnerability reported to 4fqr5@atomicmail.io
 2. **Day 1-2**: Team acknowledges receipt
 3. **Day 3-7**: Team validates and triages
 4. **Day 7-30**: Fix developed and tested
@@ -308,8 +308,8 @@ After the fix is released, we:
 
 ## 📞 Contact
 
-- **Security Team**: security@nosp.dev
-- **General Support**: nosp@4fqr.dev
+- **Security Team**: 4fqr5@atomicmail.io
+- **Discord Community**: https://dsc.gg/nullsec
 - **GitHub Security**: Use [Private Vulnerability Reporting](https://github.com/4fqr/nosp/security/advisories/new)
 
 ### PGP Public Key

@@ -1,7 +1,7 @@
-//! NOSP Core - High-Performance Windows Event Log Reader
+//! NOSP OMNI-CORE - Tri-Language Security Platform
 //! 
-//! This module provides a Rust-based Python extension for reading Windows Sysmon
-//! Event Logs with maximum performance and thread safety.
+//! C (Pattern Matching, Packet Capture) → Rust (System Safety, Forensics) → Python (AI, Orchestration)
+//! Maximum performance, deep visibility, zero compromises.
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -21,6 +21,14 @@ use chrono::{DateTime, Utc};
 use sha2::{Sha256, Digest};
 use zip::ZipWriter;
 use zip::write::FileOptions;
+
+// OMNI-CORE Module Declarations
+mod memory_analysis;
+mod usb_control;
+mod dns_sinkhole;
+mod registry_rollback;
+mod file_integrity;
+mod omni_wrappers;
 
 /// Custom error type for NOSP operations
 #[derive(Debug, thiserror::Error)]
@@ -573,6 +581,7 @@ fn check_sysmon_status() -> PyResult<HashMap<String, String>> {
 /// Python module definition
 #[pymodule]
 fn nosp_core(_py: Python, m: &PyModule) -> PyResult<()> {
+    // Existing APEX Functions
     m.add_function(wrap_pyfunction!(get_sysmon_events, m)?)?;
     m.add_function(wrap_pyfunction!(get_sysmon_network_events, m)?)?;
     m.add_function(wrap_pyfunction!(is_admin, m)?)?;
@@ -587,6 +596,32 @@ fn nosp_core(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(calculate_file_hash, m)?)?;
     m.add_function(wrap_pyfunction!(monitor_file_integrity, m)?)?;
     m.add_function(wrap_pyfunction!(scan_registry_autostart, m)?)?;
+    
+    // OMNI-CORE: Memory Analysis
+    m.add_function(wrap_pyfunction!(omni_wrappers::scan_process_memory_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::dump_process_memory_py, m)?)?;
+    
+    // OMNI-CORE: USB Control
+    m.add_function(wrap_pyfunction!(omni_wrappers::list_usb_devices_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::block_usb_device_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::unblock_usb_device_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::block_all_usb_storage_py, m)?)?;
+    
+    // OMNI-CORE: DNS Sinkhole
+    m.add_function(wrap_pyfunction!(omni_wrappers::sinkhole_domain_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::unsinkhole_domain_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::list_sinkholed_domains_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::clear_all_sinkholes_py, m)?)?;
+    
+    // OMNI-CORE: Registry Rollback
+    m.add_function(wrap_pyfunction!(omni_wrappers::backup_registry_key_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::restore_registry_key_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::list_registry_backups_py, m)?)?;
+    
+    // OMNI-CORE: File Integrity Monitoring
+    m.add_function(wrap_pyfunction!(omni_wrappers::fim_check_changes_py, m)?)?;
+    m.add_function(wrap_pyfunction!(omni_wrappers::scan_for_ransomware_extensions_py, m)?)?;
+    
     Ok(())
 }
 

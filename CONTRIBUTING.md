@@ -466,8 +466,8 @@ Contributors will be:
 
 ## 📞 Questions?
 
-- 💬 **Discord**: [Join our server](https://discord.gg/nosp)
-- 📧 **Email**: dev@nosp.dev
+- 💬 **Discord**: [Join NullSec Community](https://dsc.gg/nullsec)
+- 📧 **Email**: 4fqr5@atomicmail.io
 - 💡 **Discussions**: [GitHub Discussions](https://github.com/4fqr/nosp/discussions)
 
 ---

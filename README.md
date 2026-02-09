@@ -557,7 +557,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### Vulnerability Reporting
 
-If you discover a security vulnerability, please email **security@nosp.dev** instead of using public issue tracker. See [SECURITY.md](SECURITY.md) for details.
+If you discover a security vulnerability, please email **4fqr5@atomicmail.io** instead of using public issue tracker. See [SECURITY.md](SECURITY.md) for details.
 
 ### Security Features
 
@@ -637,7 +637,7 @@ Special thanks to our [contributors](https://github.com/4fqr/nosp/graphs/contrib
 
 ### 🚀 Ready to revolutionize your security monitoring?
 
-**[Get Started Now](#-installation)** • **[Read the Docs](#-documentation)** • **[Join Discord](https://discord.gg/nosp)**
+**[Get Started Now](#-installation)** • **[Read the Docs](#-documentation)** • **[Join NullSec](https://dsc.gg/nullsec)**
 
 ---
 

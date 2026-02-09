@@ -438,7 +438,7 @@ Absolutely! Please cite as:
 - On-site training
 - 24/7 support
 
-Contact: enterprise@nosp.dev
+Contact: 4fqr5@atomicmail.io
 
 ### Can I build a commercial product on top of NOSP?
 
@@ -453,8 +453,8 @@ Contact: enterprise@nosp.dev
 
 ## Still Have Questions?
 
-- 💬 **Discord**: [Join our server](https://discord.gg/nosp)
-- 📧 **Email**: support@nosp.dev
+- 💬 **Discord**: [Join NullSec Community](https://dsc.gg/nullsec)
+- 📧 **Email**: 4fqr5@atomicmail.io
 - 💡 **GitHub Discussions**: [Ask the community](https://github.com/4fqr/nosp/discussions)
 - 📖 **Documentation**: [Full docs](TECHNICAL_DOCS.md)
 
