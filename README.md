@@ -650,24 +650,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ---
 
-## 💬 Community & Support
-
-### Get Help
-
-- 💬 **Discord**: [Join our server](https://discord.gg/nosp)
-- 📧 **Email**: support@nosp.dev
-- 🐛 **Issues**: [GitHub Issues](https://github.com/4fqr/nosp/issues)
-- 💡 **Discussions**: [GitHub Discussions](https://github.com/4fqr/nosp/discussions)
-
-### Stay Updated
-
-- 🐦 **Twitter**: [@nosp_security](https://twitter.com/nosp_security)
-- 📰 **Blog**: [blog.nosp.dev](https://blog.nosp.dev)
-- 📺 **YouTube**: [NOSP Tutorials](https://youtube.com/@nosp_security)
-- 📧 **Newsletter**: [Subscribe](https://nosp.dev/newsletter)
-
----
-
 ## 🔒 Security
 
 ### Vulnerability Reporting
