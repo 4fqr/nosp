@@ -33,9 +33,7 @@ zip = "0.6"
 walkdir = "2.4"
 winapi = { version = "0.3", features = ["winuser", "wincon", "processthreadsapi", "memoryapi", "handleapi", "cfgmgr32", "setupapi", "winreg", "winsock2", "ws2def", "ws2ipdef"] }
 log = "0.4"
-zip = "0.6"
 aes = "0.8"
-sha2 = "0.10"
 hex = "0.4"
 rand = "0.8"
 
