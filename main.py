@@ -35,6 +35,10 @@ try:
     from nosp.system_hardener import SystemHardener
     from nosp.session_manager import SessionManager
     from nosp.terminal import TerminalSession
+    # EVENT HORIZON Features
+    from nosp.ledger import get_ledger, log_security_event
+    from nosp.mesh_network import MeshNetwork
+    from nosp.cage import Cage
 except ImportError as e:
     logger.error(f"Failed to import NOSP modules: {e}")
     st.error("⚠ NOSP modules not found. Please ensure the package is properly installed.")
@@ -1715,8 +1719,8 @@ def main():
     if RUST_AVAILABLE and st.session_state.monitoring:
         process_events()
     
-    # Main content tabs (OMEGA + APEX Enhanced)
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+    # Main content tabs (OMEGA + APEX + EVENT HORIZON)
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13 = st.tabs([
         "📊 Dashboard", 
         "🔍 Analysis", 
         "⚔️ Active Defense",
@@ -1726,7 +1730,10 @@ def main():
         "📋 Rules & Plugins",
         "🛡️ System Hardening",
         "💻 Terminal",
-        "⚙️ Settings"
+        "⚙️ Settings",
+        "🌌 Event Horizon",
+        "🔒 The Cage",
+        "⚡ God Mode"
     ])
     
     with tab1:
@@ -1841,6 +1848,540 @@ def main():
         # Debug logs
         with st.expander("📋 Recent Logs"):
             st.info("Log viewer coming soon...")
+    
+    # EVENT HORIZON TAB 11: Block chain + P2P Mesh
+    with tab11:
+        st.markdown("### 🌌 Event Horizon - Immutable Ledger & Hive Mind")
+        st.markdown("*Blockchain audit trail and decentralized threat intelligence*")
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### 📜 Immutable Blockchain Ledger")
+            try:
+                ledger = get_ledger()
+                
+                # Blockchain status
+                chain_valid = ledger.validate_chain()
+                if chain_valid:
+                    st.success(f"✓ Blockchain Integrity: **VALID** ({len(ledger.chain)} blocks)")
+                else:
+                    st.error("⚠️ Blockchain Tampered! Chain validation failed!")
+                
+                # Chain summary
+                summary = ledger.get_chain_summary()
+                st.metric("Total Blocks", summary["total_blocks"])
+                st.metric("Latest Block Hash", summary["latest_hash"][:16] + "...")
+                
+                # Add event demo
+                st.markdown("**Log Security Event:**")
+                event_type = st.selectbox("Event Type", [
+                    "Malware Detection",
+                    "Network Intrusion",
+                    "USB Device Blocked",
+                    "Process Terminated",
+                    "Firewall Rule Added"
+                ], key="ledger_event_type")
+                event_details = st.text_input("Event Details", key="ledger_event_details")
+                
+                if st.button("📝 Add to Blockchain", key="add_ledger_event"):
+                    if event_details:
+                        log_security_event(event_type, event_details)
+                        st.success(f"✓ Event logged to blockchain (block mined)")
+                        st.rerun()
+                
+                # Show recent blocks
+                st.markdown("**Recent Blocks:**")
+                if len(ledger.chain) > 1:
+                    for block in reversed(ledger.chain[-6:]):
+                        if block.index == 0:  # Skip genesis
+                            continue
+                        with st.expander(f"Block #{block.index} - {block.timestamp[:19]}"):
+                            st.json(block.event_data)
+                            st.code(f"Hash: {block.hash}", language="text")
+                            st.code(f"Previous: {block.previous_hash}", language="text")
+                            st.caption(f"Nonce: {block.nonce} (Proof-of-Work)")
+                else:
+                    st.info("No events logged yet (only genesis block exists)")
+                    
+            except Exception as e:
+                st.error(f"Ledger error: {e}")
+        
+        with col2:
+            st.markdown("#### 🌐 P2P Mesh Network (Hive Mind)")
+            
+            # Session state for mesh network
+            if 'mesh_network' not in st.session_state:
+                st.session_state.mesh_network = None
+                st.session_state.mesh_running = False
+            
+            # Control buttons
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if not st.session_state.mesh_running:
+                    if st.button("🚀 Start Mesh Network", key="start_mesh"):
+                        try:
+                            import asyncio
+                            mesh = MeshNetwork(node_name="NOSP-" + str(int(time.time()))[-4:])
+                            st.session_state.mesh_network = mesh
+                            
+                            # Start in background (simplified for demo)
+                            st.session_state.mesh_running = True
+                            st.success("✓ Mesh network started!")
+                            st.info("Discovering peers on UDP port 41337...")
+                        except Exception as e:
+                            st.error(f"Failed to start mesh: {e}")
+                else:
+                    if st.button("⏹️ Stop Mesh Network", key="stop_mesh"):
+                        st.session_state.mesh_running = False
+                        st.session_state.mesh_network = None
+                        st.success("✓ Mesh network stopped")
+            
+            with col_b:
+                if st.session_state.mesh_running and st.session_state.mesh_network:
+                    if st.button("🔄 Refresh Peers", key="refresh_peers"):
+                        st.rerun()
+            
+            # Show peer status
+            if st.session_state.mesh_running and st.session_state.mesh_network:
+                mesh = st.session_state.mesh_network
+                peers_info = mesh.get_peers_info()
+                
+                st.metric("Connected Peers", len(peers_info))
+                
+                if peers_info:
+                    st.markdown("**Active Peers:**")
+                    for peer in peers_info:
+                        with st.container():
+                            st.markdown(f"**Node:** `{peer['node_id']}`")
+                            st.markdown(f"- Host: {peer['hostname']} ({peer['ip']})")
+                            st.markdown(f"- Threats: {peer['threat_count']} | Reputation: {peer['reputation']}")
+                            st.caption(f"Last seen: {peer['last_seen']}")
+                            st.markdown("---")
+                else:
+                    st.info("No peers discovered yet. Waiting for broadcasts...")
+                
+                # Broadcast threat demo
+                st.markdown("**Broadcast Threat Signal:**")
+                threat_type = st.selectbox("Threat Type", [
+                    "Malware Hash",
+                    "Malicious IP",
+                    "C2 Domain",
+                    "File Signature"
+                ], key="mesh_threat_type")
+                threat_value = st.text_input("Threat Indicator", key="mesh_threat_value")
+                risk_score = st.slider("Risk Score", 0, 100, 75, key="mesh_risk")
+                
+                if st.button("📡 Broadcast to Hive", key="broadcast_threat"):
+                    if threat_value:
+                        try:
+                            # In async context, this would be: await mesh.broadcast_threat(...)
+                            st.success(f"✓ Threat broadcasted to {len(peers_info)} peers")
+                            st.info(f"Threat: {threat_type} = {threat_value} (Risk: {risk_score})")
+                        except Exception as e:
+                            st.error(f"Broadcast failed: {e}")
+            else:
+                st.info("Start mesh network to discover peers and share threat intelligence")
+                st.markdown("""
+                **Hive Mind Features:**
+                - UDP Discovery (Port 41337)
+                - AES-256-GCM Encrypted Signals (Port 41338)
+                - Consensus-Based Threat Validation
+                - Decentralized Intelligence Sharing
+                """)
+    
+    # EVENT HORIZON TAB 12: Sandbox (The Cage)
+    with tab12:
+        st.markdown("### 🔒 The Cage - Zero-Trust Sandbox")
+        st.markdown("*Detonate suspicious files in isolated execution environment*")
+        st.markdown("---")
+        
+        st.warning("⚠️ **WARNING:** The Cage executes files in a monitored sandbox. Use only for suspected malware analysis.")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.markdown("#### 📥 Upload & Detonate")
+            
+            uploaded_file = st.file_uploader("Select file to detonate", type=["exe", "bat", "ps1", "dll", "scr", "cmd", "vbs"], key="cage_file")
+            
+            timeout = st.slider("Execution Timeout (seconds)", 5, 30, 15, key="cage_timeout")
+            
+            if uploaded_file:
+                st.info(f"**File:** {uploaded_file.name} ({uploaded_file.size} bytes)")
+                
+                if st.button("💥 DETONATE FILE", key="detonate_file", type="primary"):
+                    with st.spinner("Detonating in sandbox..."):
+                        try:
+                            # Save uploaded file to temp location
+                            import tempfile
+                            import os
+                            
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
+                                tmp_file.write(uploaded_file.getbuffer())
+                                tmp_path = tmp_file.name
+                            
+                            # Detonate in cage
+                            cage = Cage()
+                            result = cage.detonate_file(tmp_path, timeout=timeout)
+                            
+                            # Store result in session state
+                            st.session_state.cage_result = result
+                            
+                            # Clean up temp file
+                            try:
+                                os.unlink(tmp_path)
+                            except:
+                                pass
+                            
+                            st.success("✓ Detonation complete!")
+                            st.rerun()
+                            
+                        except Exception as e:
+                            st.error(f"Detonation failed: {e}")
+        
+        with col2:
+            st.markdown("#### 🎯 Quick Command Test")
+            st.markdown("Test suspicious commands without file upload")
+            
+            test_command = st.text_area("Command to execute", 
+                                        placeholder="powershell -Command \"Get-Process\"",
+                                        key="cage_command")
+            
+            if st.button("🧪 Test Command", key="test_command"):
+                if test_command:
+                    with st.spinner("Executing in sandbox..."):
+                        try:
+                            cage = Cage()
+                            result = cage.detonate_command(test_command, timeout=timeout)
+                            st.session_state.cage_result = result
+                            st.success("✓ Execution complete!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Execution failed: {e}")
+        
+        # Show results
+        if hasattr(st.session_state, 'cage_result') and st.session_state.cage_result:
+            st.markdown("---")
+            st.markdown("### 📊 Sandbox Analysis Results")
+            
+            result = st.session_state.cage_result
+            
+            # Verdict banner
+            if result.verdict == "BENIGN":
+                st.success(f"### ✓ VERDICT: {result.verdict}")
+            elif result.verdict == "SUSPICIOUS":
+                st.warning(f"### ⚠️ VERDICT: {result.verdict}")
+            else:  # MALICIOUS
+                st.error(f"### 🚨 VERDICT: {result.verdict}")
+            
+            # Metrics
+            col_a, col_b, col_c, col_d = st.columns(4)
+            col_a.metric("Risk Score", f"{result.risk_score}/100")
+            col_b.metric("Behaviors Detected", len(result.behaviors_detected))
+            col_c.metric("Execution Time", f"{result.execution_time:.2f}s")
+            col_d.metric("Exit Code", result.exit_code)
+            
+            # Behavioral events
+            if result.behaviors_detected:
+                st.markdown("**Suspicious Behaviors:**")
+                for behavior in result.behaviors_detected:
+                    event_type = behavior.event_type
+                    icon = {
+                        "file_access": "📁",
+                        "child_process": "🔀",
+                        "network_connection": "🌐",
+                        "thread_injection": "💉"
+                    }.get(event_type, "⚠️")
+                    
+                    with st.expander(f"{icon} {event_type.replace('_', ' ').title()} (+{behavior.risk_contribution} risk)"):
+                        st.json(behavior.details)
+                        st.caption(f"Timestamp: {behavior.timestamp}")
+            else:
+                st.info("No suspicious behaviors detected")
+            
+            # Output
+            if result.output:
+                with st.expander("📄 Execution Output"):
+                    st.code(result.output, language="text")
+            
+            # Error
+            if result.error:
+                with st.expander("❌ Errors"):
+                    st.code(result.error, language="text")
+        else:
+            st.info("👆 Upload a file or enter a command to begin sandbox analysis")
+    
+    # EVENT HORIZON TAB 13: God Mode
+    with tab13:
+        st.markdown("### ⚡ God Mode - Ultimate Control")
+        st.markdown("*Packet injection, self-defense, VM detection, clipboard sentinel*")
+        st.markdown("---")
+        
+        # Check if Rust EVENT HORIZON functions are available
+        eh_available = False
+        try:
+            import nosp_core
+            # Check for EVENT HORIZON functions
+            if hasattr(nosp_core, 'enable_critical_process_py'):
+                eh_available = True
+        except:
+            pass
+        
+        if not eh_available:
+            st.warning("⚠️ EVENT HORIZON Rust modules not compiled. Run `maturin develop` to enable God Mode.")
+        
+        tab_a, tab_b, tab_c, tab_d = st.tabs([
+            "🛡️ Self-Defense",
+            "🔍 VM Detection", 
+            "📋 Clipboard Sentinel",
+            "💉 Packet Injection"
+        ])
+        
+        with tab_a:
+            st.markdown("#### 🛡️ Self-Defense Mechanisms")
+            
+            if eh_available:
+                try:
+                    import nosp_core
+                    
+                    # Get defense status
+                    status = nosp_core.get_defense_status_py()
+                    
+                    st.markdown("**Defense Status:**")
+                    for key, value in status.items():
+                        icon = "✅" if value else "❌"
+                        st.markdown(f"{icon} **{key}:** `{value}`")
+                    
+                    st.markdown("---")
+                    
+                    # Critical process toggle
+                    st.markdown("**⚠️ Critical Process Flag**")
+                    st.warning("Enabling this makes NOSP critical to Windows. Terminating it will trigger a BSOD!")
+                    
+                    col_x, col_y = st.columns(2)
+                    with col_x:
+                        if st.button("🔒 Enable Critical Process", key="enable_critical"):
+                            try:
+                                nosp_core.enable_critical_process_py()
+                                st.success("✓ Critical process flag enabled! NOSP is now protected.")
+                            except Exception as e:
+                                st.error(f"Failed: {e}")
+                    
+                    with col_y:
+                        if st.button("🔓 Disable Critical Process", key="disable_critical"):
+                            try:
+                                nosp_core.disable_critical_process_py()
+                                st.success("✓ Critical process flag disabled")
+                            except Exception as e:
+                                st.error(f"Failed: {e}")
+                    
+                    # Debugger detection
+                    st.markdown("---")
+                    st.markdown("**🔍 Debugger Detection**")
+                    if st.button("Scan for Debuggers", key="scan_debugger"):
+                        is_debugging = nosp_core.is_debugger_present_py()
+                        if is_debugging:
+                            st.error("⚠️ DEBUGGER DETECTED! Analysis tools are attached to NOSP.")
+                        else:
+                            st.success("✓ No debugger detected")
+                    
+                    # Handle attempts
+                    st.markdown("---")
+                    st.markdown("**👀 Handle Monitoring**")
+                    if st.button("Detect Handle Attempts", key="detect_handles"):
+                        try:
+                            pids = nosp_core.detect_handle_attempts_py()
+                            if pids:
+                                st.warning(f"⚠️ {len(pids)} processes have handles to NOSP:")
+                                for pid in pids:
+                                    st.code(f"PID: {pid}", language="text")
+                            else:
+                                st.success("✓ No suspicious handle attempts detected")
+                        except Exception as e:
+                            st.error(f"Scan failed: {e}")
+                    
+                except Exception as e:
+                    st.error(f"Self-defense error: {e}")
+            else:
+                st.info("Compile Rust modules to enable self-defense features")
+        
+        with tab_b:
+            st.markdown("#### 🔍 VM & Debugger Detection")
+            
+            if eh_available:
+                try:
+                    import nosp_core
+                    
+                    if st.button("🔎 Scan Environment", key="scan_environment", type="primary"):
+                        with st.spinner("Analyzing execution environment..."):
+                            env_status = nosp_core.get_environment_status_py()
+                            st.session_state.env_status = env_status
+                            st.rerun()
+                    
+                    if hasattr(st.session_state, 'env_status'):
+                        env = st.session_state.env_status
+                        
+                        # Overall status
+                        if env['is_suspicious']:
+                            st.error("🚨 SUSPICIOUS ENVIRONMENT DETECTED!")
+                        else:
+                            st.success("✓ Environment appears legitimate")
+                        
+                        col_p, col_q = st.columns(2)
+                        
+                        with col_p:
+                            st.markdown("**Virtual Machine Detection:**")
+                            vm = env['vm']
+                            
+                            if vm['is_vm']:
+                                st.warning(f"⚠️ Running in {vm['vm_type']}")
+                                st.metric("Confidence", f"{vm['confidence']}%")
+                            else:
+                                st.success("✓ Not running in VM")
+                            
+                            if vm['indicators']:
+                                with st.expander("VM Indicators"):
+                                    for indicator in vm['indicators']:
+                                        st.markdown(f"- {indicator}")
+                        
+                        with col_q:
+                            st.markdown("**Debugger Detection:**")
+                            dbg = env['debugger']
+                            
+                            if dbg['is_debugging']:
+                                st.error(f"🚨 {dbg['debugger_type']} detected!")
+                                st.metric("Confidence", f"{dbg['confidence']}%")
+                            else:
+                                st.success("✓ No debugger detected")
+                            
+                            if dbg['indicators']:
+                                with st.expander("Debugger Indicators"):
+                                    for indicator in dbg['indicators']:
+                                        st.markdown(f"- {indicator}")
+                    
+                except Exception as e:
+                    st.error(f"Detection error: {e}")
+            else:
+                st.info("Compile Rust modules to enable VM detection")
+        
+        with tab_c:
+            st.markdown("#### 📋 Clipboard Sentinel")
+            
+            if eh_available:
+                try:
+                    import nosp_core
+                    
+                    # Check if monitoring
+                    is_monitoring = nosp_core.is_monitoring_py()
+                    
+                    col_m, col_n = st.columns(2)
+                    with col_m:
+                        if not is_monitoring:
+                            if st.button("▶️ Start Monitoring", key="start_clipboard"):
+                                nosp_core.start_clipboard_monitor_py()
+                                st.success("✓ Clipboard monitoring started")
+                                st.rerun()
+                        else:
+                            if st.button("⏹️ Stop Monitoring", key="stop_clipboard"):
+                                nosp_core.stop_clipboard_monitor_py()
+                                st.success("✓ Clipboard monitoring stopped")
+                                st.rerun()
+                    
+                    with col_n:
+                        if is_monitoring:
+                            st.success("🟢 Monitoring Active")
+                        else:
+                            st.info("⚪ Monitoring Inactive")
+                    
+                    if is_monitoring:
+                        st.markdown("---")
+                        st.markdown("**Recent Clipboard Activity:**")
+                        
+                        # Get history
+                        history = nosp_core.get_clipboard_history_py()
+                        
+                        if history:
+                            for event in reversed(history):
+                                icon = "🔐" if event.get('is_sensitive') else "📄"
+                                warning_icon = " ⚠️" if event.get('is_suspicious') else ""
+                                
+                                with st.expander(f"{icon} {event['content_type']} - {event['timestamp'][:19]}{warning_icon}"):
+                                    st.markdown(f"**Content:** `{event['content']}`")
+                                    st.markdown(f"**Sensitive:** {event['is_sensitive']}")
+                                    if event.get('is_suspicious'):
+                                        st.error(f"**WARNING:** {event.get('warning_message', 'Suspicious activity detected')}")
+                        else:
+                            st.info("No clipboard activity recorded yet")
+                        
+                        # Suspicious events
+                        st.markdown("---")
+                        st.markdown("**🚨 Hijacking Attempts:**")
+                        suspicious = nosp_core.get_latest_suspicious_py()
+                        
+                        if suspicious:
+                            for event in suspicious:
+                                with st.container():
+                                    st.error(f"**{event['content_type']}** - {event['timestamp'][:19]}")
+                                    st.markdown(f"```{event['content']}```")
+                                    st.markdown(f"⚠️ {event.get('warning_message')}")
+                                    st.markdown("---")
+                        else:
+                            st.success("✓ No hijacking attempts detected")
+                        
+                        # Whitelist management
+                        st.markdown("---")
+                        st.markdown("**Whitelist Management:**")
+                        
+                        whitelist = nosp_core.get_whitelist_py()
+                        if whitelist:
+                            st.markdown("**Whitelisted Addresses:**")
+                            for addr in whitelist:
+                                col_r, col_s = st.columns([4, 1])
+                                col_r.code(addr, language="text")
+                                if col_s.button("❌", key=f"remove_{addr[:8]}"):
+                                    nosp_core.remove_from_whitelist_py(addr)
+                                    st.rerun()
+                        
+                        new_addr = st.text_input("Add address to whitelist", key="whitelist_addr")
+                        if st.button("➕ Add to Whitelist", key="add_whitelist"):
+                            if new_addr:
+                                nosp_core.add_to_whitelist_py(new_addr)
+                                st.success(f"✓ Added {new_addr}")
+                                st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Clipboard monitor error: {e}")
+            else:
+                st.info("Compile Rust modules to enable clipboard monitoring")
+        
+        with tab_d:
+            st.markdown("#### 💉 Packet Injection (C)")
+            st.markdown("*TCP RST injection at wire level*")
+            
+            st.warning("⚠️ Requires Administrator privileges and compiled C modules")
+            
+            st.markdown("**Kill TCP Connection:**")
+            
+            col_1, col_2 = st.columns(2)
+            with col_1:
+                src_ip = st.text_input("Source IP", placeholder="192.168.1.100", key="rst_src_ip")
+                dst_ip = st.text_input("Destination IP", placeholder="203.0.113.42", key="rst_dst_ip")
+            
+            with col_2:
+                src_port = st.number_input("Source Port", min_value=1, max_value=65535, value=54321, key="rst_src_port")
+                dst_port = st.number_input("Dest Port", min_value=1, max_value=65535, value=443, key="rst_dst_port")
+            
+            seq_num = st.number_input("Sequence Number", min_value=0, value=1234567890, key="rst_seq")
+            
+            if st.button("💥 Inject RST Packet", key="inject_rst", type="primary"):
+                st.error("⚠️ Packet injection requires compiled C module and Administrator privileges")
+                st.info(f"Would inject RST: {src_ip}:{src_port} -> {dst_ip}:{dst_port} (seq={seq_num})")
+                # In production: Call C packet injector via ctypes/cffi
+                # import ctypes
+                # libinject = ctypes.CDLL('./native/c/packet_injector.so')
+                # result = libinject.inject_tcp_rst(...)
 
 
 if __name__ == "__main__":

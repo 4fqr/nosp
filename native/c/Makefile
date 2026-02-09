@@ -1,27 +1,50 @@
-# NOSP C Core Compilation
+# NOSP EVENT HORIZON - C Core Compilation
 
 CC = gcc
 CFLAGS = -O3 -march=native -Wall -Wextra -std=c11 -fPIC
 LDFLAGS = -shared
 
-# For Windows
+# Platform detection
 ifeq ($(OS),Windows_NT)
-    TARGET = pattern_matcher.dll
-    LDFLAGS += -lws2_32
+    EXT = .dll
+    LIBS = -lws2_32
 else
-    TARGET = libpattern_matcher.so
+    EXT = .so
+    LIBS =
 endif
 
-all: $(TARGET) test
+# All targets
+all: pattern_matcher$(EXT) packet_capture$(EXT) packet_injector$(EXT)
 
-$(TARGET): pattern_matcher.c pattern_matcher.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TARGET) pattern_matcher.c
+# Pattern Matcher
+pattern_matcher$(EXT): pattern_matcher.c pattern_matcher.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ pattern_matcher.c
 
-test: pattern_matcher.c pattern_matcher.h
-	$(CC) $(CFLAGS) -DAC_TEST_MAIN -o pattern_matcher_test pattern_matcher.c
-	./pattern_matcher_test
+# Packet Capture
+packet_capture$(EXT): packet_capture.c packet_capture.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ packet_capture.c $(LIBS)
+
+# Packet Injector (EVENT HORIZON)
+packet_injector$(EXT): packet_injector.c packet_injector.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ packet_injector.c $(LIBS)
+
+# Test executables
+test_pattern: pattern_matcher.c pattern_matcher.h
+	$(CC) $(CFLAGS) -DBUILD_TEST -o $@ pattern_matcher.c
+
+test_capture: packet_capture.c packet_capture.h
+	$(CC) $(CFLAGS) -DBUILD_TEST -o $@ packet_capture.c $(LIBS)
+
+test_injector: packet_injector.c packet_injector.h
+	$(CC) $(CFLAGS) -DBUILD_TEST -o $@ packet_injector.c $(LIBS)
+
+# Build and run all tests
+test: test_pattern test_capture test_injector
+	@echo "Running tests..."
+	./test_pattern
+	@echo "Note: test_capture and test_injector require Administrator/root"
 
 clean:
-	rm -f $(TARGET) pattern_matcher_test *.o
+	rm -f *$(EXT) test_* *.o
 
 .PHONY: all test clean

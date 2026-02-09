@@ -30,6 +30,12 @@ mod registry_rollback;
 mod file_integrity;
 mod omni_wrappers;
 
+// EVENT HORIZON Module Declarations
+mod self_defense;
+mod vm_detection;
+mod clipboard_monitor;
+mod event_horizon_wrappers;
+
 /// Custom error type for NOSP operations
 #[derive(Debug, thiserror::Error)]
 pub enum NOSPError {
@@ -621,6 +627,28 @@ fn nosp_core(_py: Python, m: &PyModule) -> PyResult<()> {
     // OMNI-CORE: File Integrity Monitoring
     m.add_function(wrap_pyfunction!(omni_wrappers::fim_check_changes_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::scan_for_ransomware_extensions_py, m)?)?;
+    
+    // EVENT HORIZON: Self-Defense
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::enable_critical_process_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::disable_critical_process_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::is_debugger_present_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_handle_attempts_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_defense_status_py, m)?)?;
+    
+    // EVENT HORIZON: VM/Debugger Detection
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_vm_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_debugger_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_environment_status_py, m)?)?;
+    
+    // EVENT HORIZON: Clipboard Monitoring
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::start_clipboard_monitor_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::stop_clipboard_monitor_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_clipboard_history_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_latest_suspicious_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::add_to_whitelist_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::remove_from_whitelist_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_whitelist_py, m)?)?;
+    m.add_function(wrap_pyfunction!(event_horizon_wrappers::is_monitoring_py, m)?)?;
     
     Ok(())
 }
