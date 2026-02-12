@@ -271,14 +271,9 @@ fn terminate_process(pid: u32) -> PyResult<bool> {
                 Err(PyErr::new::<pyo3::exceptions::PyPermissionError, _>(
                     format!("Access denied. Administrator privileges required: {:?}", e)
                 ))
-            }get_sysmon_network_events, m)?)?;
-    m.add_function(wrap_pyfunction!(is_admin, m)?)?;
-    m.add_function(wrap_pyfunction!(get_version, m)?)?;
-    m.add_function(wrap_pyfunction!(check_sysmon_status, m)?)?;
-    m.add_function(wrap_pyfunction!(terminate_process, m)?)?;
-    m.add_function(wrap_pyfunction!(suspend_process, m)?)?;
-    m.add_function(wrap_pyfunction!(resume_process, m)?)?;
-    m.add_function(wrap_pyfunction!(get_process_info
+            }
+        }
+    }
 }
 
 #[pyfunction]
