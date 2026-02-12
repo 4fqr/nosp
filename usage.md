@@ -1,23 +1,46 @@
 # NOSP Usage Reference
 
+## Platform Support
+
+### Windows (Full Features)
+- ETW event tracing
+- Registry monitoring  
+- USB device control via drivers
+- Memory forensics
+- All features available
+
+### Linux (Debian/Ubuntu)
+- Process monitoring (auditd/psutil)
+- USB device enumeration (pyudev/lsusb)
+- Network capture (netfilterqueue with root)
+- File integrity monitoring
+- AI threat analysis
+- Web dashboard
+
 ## Command-Line Interface
 
 ### Basic Commands
 
+**Windows:**
+```cmd
+run_nosp.bat
+```
+
+**Linux:**
 ```bash
-# Start NOSP with web interface
+sudo ./run_nosp_linux.sh
+```
+
+**Cross-platform:**
+```bash
 python main.py
 
-# Initialize database
 python main.py --init-db
 
-# Full system scan
 python main.py --scan
 
-# Real-time monitoring mode
 python main.py --watch
 
-# Analyze specific process
 python main.py --analyze <PID>
 ```
 
@@ -28,11 +51,107 @@ python main.py --analyze <PID>
 --port <PORT>      Web server port (default: 8080)
 --db <PATH>        Database file path (default: nosp.db)
 --log <LEVEL>      Log level: DEBUG, INFO, WARNING, ERROR
---no-tray          Disable system tray icon
+--no-tray          Disable system tray icon (Windows only)
 --no-ai            Disable AI analysis
 ```
 
+### Linux-Specific Commands
+
+**Setup (one-time):**
+```bash
+sudo ./setup_linux.sh
+```
+
+**Check monitoring capabilities:**
+```bash
+systemctl status auditd
+which auditctl
+which bpftrace
+pip list | grep -E "psutil|pyudev|netfilterqueue"
+```
+
+**Enable process monitoring:**
+```bash
+sudo auditctl -a always,exit -F arch=b64 -S execve -k nosp_exec
+```
+
+**View audit events:**
+```bash
+sudo ausearch -k nosp_exec --format json
+```
+
+**Enable packet capture (requires root):**
+```bash
+sudo python main.py
+```
+
 ## Python Module Usage
+
+### Platform Compatibility Module
+
+```python
+from nosp.platform_compat import IS_WINDOWS, IS_LINUX, is_admin, get_platform
+
+if IS_LINUX:
+    print("Running on Linux")
+    from nosp.linux_compat import LinuxProcessMonitor, LinuxUSBMonitor
+    
+    proc_mon = LinuxProcessMonitor()
+    proc_mon.start_monitoring()
+    events = proc_mon.get_events()
+
+if is_admin():
+    print("Running with elevated privileges")
+```
+
+### Linux Process Monitoring
+
+```python
+from nosp.linux_compat import LinuxProcessMonitor
+
+monitor = LinuxProcessMonitor()
+
+backends = monitor._detect_backends()
+print(f"Available: {backends}")
+
+monitor.start_monitoring()
+
+events = monitor.get_events()
+for event in events:
+    print(f"{event['pid']}: {event['name']} - {event['cmdline']}")
+
+monitor.stop_monitoring()
+```
+
+### Linux USB Monitoring
+
+```python
+from nosp.linux_compat import LinuxUSBMonitor
+
+usb_mon = LinuxUSBMonitor()
+
+devices = usb_mon.get_devices()
+for dev in devices:
+    print(f"VID: {dev.get('vendor_id')}, PID: {dev.get('product_id')}")
+    print(f"Vendor: {dev.get('vendor')}, Model: {dev.get('model')}")
+
+result = usb_mon.block_device("1234:5678")
+if result:
+    print("✓ Device blocked via udev rules")
+```
+
+### Linux Network Capture
+
+```python
+from nosp.linux_compat import LinuxNetworkMonitor
+
+net_mon = LinuxNetworkMonitor()
+
+def packet_callback(pkt):
+    print(f"Packet: {pkt.get_payload()}")
+
+net_mon.start_packet_capture(packet_callback)
+```
 
 ### AI Engine
 
@@ -430,3 +549,110 @@ rules_engine.delete_rule(rule_id=5)
 - `GET /api/status` - System status
 - `GET /api/stats` - Statistics
 - `POST /api/scan` - Trigger system scan
+
+## Linux-Specific Features
+
+### Process Monitoring Backends
+
+**auditd (Recommended):**
+```bash
+sudo apt install auditd
+sudo systemctl enable auditd
+sudo systemctl start auditd
+```
+
+**psutil (Fallback):**
+```bash
+pip install psutil
+```
+
+**bpftrace (Advanced):**
+```bash
+sudo apt install bpftrace
+```
+
+### USB Device Management
+
+**pyudev (Recommended):**
+```bash
+pip install pyudev
+```
+
+**lsusb (Fallback):**
+```bash
+sudo apt install usbutils
+lsusb
+```
+
+**Block device via udev rules:**
+```bash
+sudo cat > /etc/udev/rules.d/99-nosp-block.rules << EOF
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1234", ATTRS{idProduct}=="5678", MODE="0000"
+EOF
+sudo udevadm control --reload-rules
+```
+
+### Network Capture
+
+**netfilterqueue (Requires root):**
+```bash
+sudo apt install build-essential python3-dev libnetfilter-queue-dev
+pip install NetfilterQueue
+```
+
+**Use NFQUEUE:**
+```bash
+sudo iptables -I FORWARD -j NFQUEUE --queue-num 1
+sudo python main.py
+```
+
+### File Integrity Monitoring
+
+```python
+from nosp import file_monitor
+
+file_monitor.watch_directory("/etc", recursive=True)
+file_monitor.watch_directory("/usr/bin")
+file_monitor.watch_directory("/home/user/.ssh")
+
+violations = file_monitor.check_integrity()
+```
+
+## Troubleshooting
+
+### Windows
+
+**Issue:** ETW events not captured  
+**Solution:** Run as Administrator
+
+**Issue:** System tray icon not showing  
+**Solution:** Install `pip install pystray pillow`
+
+### Linux
+
+**Issue:** Process monitoring not working  
+**Solution:** Install auditd: `sudo apt install auditd`
+
+**Issue:** Permission denied errors  
+**Solution:** Run with sudo: `sudo python main.py`
+
+**Issue:** USB devices not detected  
+**Solution:** Install pyudev: `pip install pyudev`
+
+**Issue:** Network capture fails  
+**Solution:** Install netfilterqueue and run with sudo
+
+**Issue:** Module not found errors  
+**Solution:** Run setup script: `sudo ./setup_linux.sh`
+
+### Cross-Platform
+
+**Issue:** AI analysis not working  
+**Solution:** Install Ollama: `pip install ollama` and `ollama pull mistral`
+
+**Issue:** Database errors  
+**Solution:** Delete nosp.db and restart: `rm nosp.db && python main.py`
+
+**Issue:** Import errors  
+**Solution:** Set PYTHONPATH: `export PYTHONPATH=$PWD/python:$PYTHONPATH`
+

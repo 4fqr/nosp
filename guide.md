@@ -26,28 +26,70 @@
 
 ## Installation Verification
 
-After installation, verify all components:
+### Windows
 
-```bash
-# Check Python modules
+After running `setup.bat`, verify components:
+
+```cmd
 python -c "from nosp import ai_engine, database, forensics; print('OK')"
 
-# Check Rust module
 python -c "import nosp_core; print('Rust module loaded')"
 
-# Verify database
 python main.py --init-db
 ```
 
-Expected output: No errors, database created at `nosp.db`.
+Expected: No errors, database created at `nosp.db`.
+
+### Linux (Debian/Ubuntu)
+
+After running `sudo ./setup_linux.sh`, verify:
+
+```bash
+python3 -c "from nosp import ai_engine, database, forensics; print('OK')"
+
+python3 -c "from nosp.linux_compat import LinuxProcessMonitor; print('OK')"
+
+python3 main.py --init-db
+```
+
+Check monitoring capabilities:
+```bash
+systemctl status auditd
+which auditctl
+pip3 list | grep psutil
+```
 
 ## First Launch
+
+### Windows
 
 1. Open Command Prompt as Administrator
 2. Navigate to NOSP directory
 3. Run: `run_nosp.bat` or `python main.py`
-4. Wait for startup messages:
+4. Wait for startup messages
+
+### Linux
+
+1. Open terminal in NOSP directory
+2. Run with elevated privileges:
+   ```bash
+   sudo ./run_nosp_linux.sh
    ```
+   Or manually:
+   ```bash
+   sudo python3 main.py
+   ```
+3. Wait for startup messages:
+   ```
+   ✓ Running on Linux - using compatibility layer
+   ✓ AI Engine initialized
+   ✓ Database connected
+   ✓ Web server starting on http://localhost:8080
+   ```
+
+### Startup Output
+
+```
    [INFO] Database initialized
    [INFO] AI engine ready (model: mistral)
    [INFO] ETW monitoring started
@@ -755,6 +797,233 @@ response = requests.post('http://localhost:8080/api/rules', json=rule)
 - `Ctrl+S` - Save changes
 - `F5` - Quick refresh
 - `Esc` - Close dialog
+
+## Linux-Specific Guide
+
+### Initial Setup
+
+**System Requirements:**
+- Debian/Ubuntu Linux (tested on 20.04+)
+- Python 3.8+
+- Root access for monitoring features
+
+**Installation:**
+```bash
+cd /path/to/NOSP
+sudo ./setup_linux.sh
+```
+
+This installs:
+- System dependencies (auditd, libpcap-dev, etc.)
+- Python packages (psutil, pyudev, netfilterqueue)
+- Rust toolchain (if not present)
+
+### Process Monitoring on Linux
+
+**Using auditd (Recommended):**
+
+Enable process execution monitoring:
+```bash
+sudo auditctl -a always,exit -F arch=b64 -S execve -k nosp_exec
+```
+
+View audit events:
+```bash
+sudo ausearch -k nosp_exec | tail -20
+```
+
+Make persistent (survives reboot):
+```bash
+sudo cat >> /etc/audit/rules.d/nosp.rules << EOF
+-a always,exit -F arch=b64 -S execve -k nosp_exec
+EOF
+sudo service auditd restart
+```
+
+**Using psutil (Fallback):**
+
+NOSP automatically uses psutil if auditd is unavailable. No configuration needed.
+
+### USB Device Management on Linux
+
+**List USB devices:**
+```bash
+lsusb
+```
+
+**Monitor USB events with udev:**
+```bash
+sudo udevadm monitor --subsystem=usb
+```
+
+**Block specific USB device:**
+
+Create udev rule:
+```bash
+sudo nano /etc/udev/rules.d/99-nosp-usb-block.rules
+```
+
+Add line (replace VID:PID):
+```
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1234", ATTRS{idProduct}=="5678", MODE="0000"
+```
+
+Reload rules:
+```bash
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+### Network Packet Capture
+
+**Enable packet capture:**
+```bash
+sudo iptables -I FORWARD -j NFQUEUE --queue-num 1
+sudo python3 main.py
+```
+
+**View iptables rules:**
+```bash
+sudo iptables -L -n -v
+```
+
+**Remove NFQUEUE rule:**
+```bash
+sudo iptables -D FORWARD -j NFQUEUE --queue-num 1
+```
+
+### File Integrity Monitoring
+
+**Monitor system directories:**
+```python
+from nosp import file_monitor
+
+file_monitor.watch_directory("/etc", recursive=True)
+file_monitor.watch_directory("/usr/bin")
+file_monitor.watch_directory("/usr/sbin")
+file_monitor.watch_directory("/home/user/.ssh")
+```
+
+**Generate baseline:**
+```bash
+python3 -c "
+from nosp import file_monitor
+file_monitor.generate_baseline('/etc')
+file_monitor.generate_baseline('/usr/bin')
+"
+```
+
+### Systemd Service Setup
+
+Create service file:
+```bash
+sudo nano /etc/systemd/system/nosp.service
+```
+
+Content:
+```ini
+[Unit]
+Description=NOSP Security Monitor
+After=network.target auditd.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/NOSP
+ExecStart=/usr/bin/python3 /opt/NOSP/main.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable nosp
+sudo systemctl start nosp
+sudo systemctl status nosp
+```
+
+View logs:
+```bash
+sudo journalctl -u nosp -f
+```
+
+### Performance on Linux
+
+**Reduce CPU usage:**
+```bash
+export PYTHONOPTIMIZE=1
+nice -n 10 sudo python3 main.py
+```
+
+**Limit memory:**
+```bash
+sudo systemd-run --scope -p MemoryLimit=500M python3 main.py
+```
+
+**Check resource usage:**
+```bash
+top -p $(pgrep -f "python3 main.py")
+```
+
+### Troubleshooting Linux
+
+**Issue:** auditd not capturing events  
+**Solution:**
+```bash
+sudo systemctl status auditd
+sudo auditctl -l
+sudo ausearch -k nosp_exec
+```
+
+**Issue:** Permission denied  
+**Solution:** Run with sudo or add user to required groups:
+```bash
+sudo usermod -aG sudo,audit,disk $USER
+```
+
+**Issue:** Port 8080 already in use  
+**Solution:**
+```bash
+sudo lsof -i :8080
+python3 main.py --port 8081
+```
+
+**Issue:** Rusmodule not loading  
+**Solution:**
+```bash
+cd /path/to/NOSP
+cargo clean
+cargo build --release
+```
+
+**Issue:** Python module not found  
+**Solution:**
+```bash
+export PYTHONPATH=$PWD/python:$PYTHONPATH
+python3 main.py
+```
+
+### Linux Security Hardening
+
+**SELinux compatibility:**
+```bash
+sudo setenforce 0
+```
+
+**AppArmor compatibility:**
+```bash
+sudo aa-disable /usr/bin/python3
+```
+
+**Firewall configuration:**
+```bash
+sudo ufw allow 8080/tcp
+sudo ufw enable
+```
 
 ### Support Resources
 
