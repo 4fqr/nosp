@@ -2199,8 +2199,29 @@ def main():
             seq_num = st.number_input("Sequence Number", min_value=0, value=1234567890, key="rst_seq")
             
             if st.button("💥 Inject RST Packet", key="inject_rst", type="primary"):
-                st.error("⚠️ Packet injection requires compiled C module and Administrator privileges")
-                st.info(f"Would inject RST: {src_ip}:{src_port} -> {dst_ip}:{dst_port} (seq={seq_num})")
+                if not src_ip or not dst_ip:
+                    st.error("Please provide both source and destination IPs")
+                else:
+                    try:
+                        from nosp.native_bindings import get_packet_injector
+                        
+                        injector = get_packet_injector()
+                        
+                        if not injector.lib:
+                            st.error("⚠️ C module not compiled. Run: cd native/c && make all")
+                        elif not injector.initialize():
+                            st.error("❌ Failed to initialize (requires root/Administrator)")
+                        else:
+                            if injector.inject_rst(src_ip, dst_ip, src_port, dst_port, seq_num):
+                                st.success(f"✓ RST packet injected successfully!")
+                                st.info(f"Target: {src_ip}:{src_port} -> {dst_ip}:{dst_port}")
+                                st.caption(f"Total injections: {injector.get_stats()}")
+                            else:
+                                st.error("❌ Injection failed")
+                            
+                            injector.cleanup()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
 
 
 if __name__ == "__main__":

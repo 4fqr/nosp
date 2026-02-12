@@ -4,6 +4,9 @@
  * Zero-copy packet processing with nanosecond timestamps
  */
 
+#define _POSIX_C_SOURCE 199309L
+#define _GNU_SOURCE
+
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -15,6 +18,7 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
+#include <time.h>
 #include <unistd.h>
 #endif
 
