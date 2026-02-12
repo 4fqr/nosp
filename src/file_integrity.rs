@@ -1,7 +1,4 @@
-/*
- * NOSP Rust Core - File Integrity Monitoring (FIM) Module
- * Real-time file monitoring with hash-based change detection
- */
+
 
 use std::collections::HashMap;
 use std::fs::{File, metadata};

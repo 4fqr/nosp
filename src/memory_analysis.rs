@@ -1,8 +1,4 @@
-/*
- * NOSP Rust Core - Process Memory Analysis Module
- * Detects process hollowing, injection, and hooking attacks
- * Advanced memory forensics for threat detection
- */
+
 
 use std::mem;
 use std::ptr;
@@ -40,7 +36,7 @@ pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
     unsafe {
         let handle =
             OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-        
+
         if handle.is_null() {
             return Err(format!("Failed to open process {}", pid));
         }
@@ -80,7 +76,7 @@ pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
 
                     if is_writable {
                         info.writable_executable_pages += 1;
-                        
+
                         let region = MemoryRegion {
                             base_address: mbi.BaseAddress as usize,
                             size: mbi.RegionSize,
@@ -88,7 +84,7 @@ pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
                             is_executable,
                             is_writable,
                         };
-                        
+
                         info.suspicious_regions.push(region);
                     }
 
@@ -334,7 +330,7 @@ mod tests {
         let pid = std::process::id();
         let result = scan_process_memory(pid);
         assert!(result.is_ok());
-        
+
         let info = result.unwrap();
         assert!(info.total_executable_pages > 0);
     }

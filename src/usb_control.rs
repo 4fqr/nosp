@@ -1,7 +1,4 @@
-/*
- * NOSP Rust Core - USB Device Control Module
- * Block and monitor USB devices via Windows Device Installation API
- */
+
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;

@@ -1,7 +1,4 @@
-/*
- * NOSP Rust Core - Registry Rollback Module
- * Backup and restore Windows Registry keys for incident recovery
- */
+
 
 use std::ffi::OsStr;
 use std::fs::{File, create_dir_all};

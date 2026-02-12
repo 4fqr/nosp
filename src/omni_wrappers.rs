@@ -12,7 +12,7 @@ fn scan_process_memory_py(py: Python, pid: u32) -> PyResult<PyObject> {
             dict.set_item("injection_detected", info.injection_detected)?;
             dict.set_item("hook_detected", info.hook_detected)?;
             dict.set_item("risk_score", info.risk_score)?;
-            
+
 
             Ok(dict.into())
         }

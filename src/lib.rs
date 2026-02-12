@@ -34,13 +34,13 @@ mod event_horizon_wrappers;
 pub enum NOSPError {
     #[error("Windows API error: {0}")]
     WindowsError(String),
-    
+
     #[error("Event parsing error: {0}")]
     ParseError(String),
-    
+
     #[error("Access denied: Administrator privileges required")]
     AccessDenied,
-    
+
     #[error("Sysmon not installed or not logging")]
     SysmonNotFound,
 }
@@ -73,19 +73,19 @@ impl SysmonEvent {
         dict.set_item("user", &self.user)?;
         dict.set_item("parent_image", &self.parent_image)?;
         dict.set_item("parent_command_line", &self.parent_command_line)?;
-        
+
         let hashes_dict = PyDict::new(py);
         for (key, value) in &self.hashes {
             hashes_dict.set_item(key, value)?;
         }
         dict.set_item("hashes", hashes_dict)?;
-        
+
         Ok(dict.into())
     }
 }
 
 fn parse_event_data(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
-    
+
     let extract_value = |tag: &str| -> String {
         let start_tag = format!("<Data Name='{}'", tag);
         if let Some(start_pos) = xml_content.find(&start_tag) {
@@ -98,7 +98,7 @@ fn parse_event_data(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
         }
         String::new()
     };
-    
+
     let extract_system_value = |tag: &str| -> String {
         let start_tag = format!("<{}", tag);
         if let Some(start_pos) = xml_content.find(&start_tag) {
@@ -111,7 +111,7 @@ fn parse_event_data(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
         }
         String::new()
     };
-    
+
     let mut hashes = HashMap::new();
     let hashes_str = extract_value("Hashes");
     for hash_pair in hashes_str.split(',') {
@@ -120,10 +120,10 @@ fn parse_event_data(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
             hashes.insert(parts[0].to_string(), parts[1].to_string());
         }
     }
-    
+
     let process_id_str = extract_value("ProcessId");
     let process_id = process_id_str.parse::<u32>().unwrap_or(0);
-    
+
     Ok(SysmonEvent {
         event_id: 1,
         timestamp: extract_system_value("TimeCreated"),
@@ -142,11 +142,11 @@ fn parse_event_data(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
 #[pyfunction]
 fn get_sysmon_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObject>> {
     let max = max_events.unwrap_or(100);
-    
+
     py.allow_threads(|| {
         let channel = w!("Microsoft-Windows-Sysmon/Operational");
         let query = w!("*[System[(EventID=1)]]");
-        
+
         unsafe {
             let handle = match EvtQuery(
                 None,
@@ -159,11 +159,11 @@ fn get_sysmon_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObje
                     return Ok(Vec::new());
                 }
             };
-            
+
             let mut events = Vec::new();
             let mut returned = 0u32;
             let mut event_handles = vec![HANDLE::default(); max as usize];
-            
+
             match EvtNext(
                 handle,
                 &mut event_handles,
@@ -177,7 +177,7 @@ fn get_sysmon_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObje
                     return Ok(Vec::new());
                 }
             }
-            
+
             for i in 0..returned as usize {
                 if let Ok(xml) = render_event_as_xml(event_handles[i]) {
                     if let Ok(event) = parse_event_data(&xml) {
@@ -186,7 +186,7 @@ fn get_sysmon_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObje
                 }
                 EvtClose(event_handles[i]);
             }
-            
+
             EvtClose(handle);
             Ok(events)
         }
@@ -201,7 +201,7 @@ unsafe fn render_event_as_xml(event_handle: HANDLE) -> Result<String, NOSPError>
     let mut buffer_size = 0u32;
     let mut buffer_used = 0u32;
     let mut property_count = 0u32;
-    
+
     let _ = EvtRender(
         None,
         event_handle,
@@ -211,14 +211,14 @@ unsafe fn render_event_as_xml(event_handle: HANDLE) -> Result<String, NOSPError>
         &mut buffer_used,
         &mut property_count,
     );
-    
+
     if buffer_used == 0 {
         return Err(NOSPError::ParseError("Failed to get buffer size".to_string()));
     }
-    
+
     buffer_size = buffer_used;
     let mut buffer: Vec<u16> = vec![0; (buffer_size / 2) as usize];
-    
+
     match EvtRender(
         None,
         event_handle,
@@ -251,7 +251,7 @@ fn terminate_process(pid: u32) -> PyResult<bool> {
             false,
             pid,
         );
-        
+
         match process_handle {
             Ok(handle) => {
                 match TerminateProcess(handle, 1) {
@@ -289,7 +289,7 @@ fn suspend_process(pid: u32) -> PyResult<bool> {
             BOOL(0),
             pid,
         );
-        
+
         match process_handle {
             Ok(handle) => {
                 let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
@@ -322,7 +322,7 @@ fn resume_process(pid: u32) -> PyResult<bool> {
             BOOL(0),
             pid,
         );
-        
+
         match process_handle {
             Ok(handle) => {
                 let _ = CloseHandle(handle);
@@ -340,15 +340,15 @@ fn resume_process(pid: u32) -> PyResult<bool> {
 #[pyfunction]
 fn quarantine_file(file_path: String, quarantine_dir: String) -> PyResult<String> {
     use std::time::{SystemTime, UNIX_EPOCH};
-    
+
     let source = Path::new(&file_path);
-    
+
     if !source.exists() {
         return Err(PyErr::new::<pyo3::exceptions::PyFileNotFoundError, _>(
             format!("File not found: {}", file_path)
         ));
     }
-    
+
     let quarantine_path = Path::new(&quarantine_dir);
     if !quarantine_path.exists() {
         fs::create_dir_all(quarantine_path)
@@ -356,29 +356,29 @@ fn quarantine_file(file_path: String, quarantine_dir: String) -> PyResult<String
                 format!("Failed to create quarantine directory: {}", e)
             ))?;
     }
-    
+
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    
+
     let file_name = source.file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("unknown");
-    
+
     let quarantine_file = quarantine_path.join(format!("{}_{}.quarantine", timestamp, file_name));
-    
+
     fs::rename(source, &quarantine_file)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
             format!("Failed to quarantine file: {}", e)
         ))?;
-    
+
     let metadata_file = quarantine_path.join(format!("{}_{}.meta", timestamp, file_name));
     let mut meta = fs::File::create(&metadata_file)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
             format!("Failed to create metadata: {}", e)
         ))?;
-    
+
     writeln!(meta, "Original Path: {}", file_path)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
             format!("Failed to write metadata: {}", e)
@@ -387,7 +387,7 @@ fn quarantine_file(file_path: String, quarantine_dir: String) -> PyResult<String
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
             format!("Failed to write metadata: {}", e)
         ))?;
-    
+
     Ok(quarantine_file.to_string_lossy().to_string())
 }
 
@@ -395,12 +395,12 @@ fn quarantine_file(file_path: String, quarantine_dir: String) -> PyResult<String
 fn get_process_info(py: Python, pid: u32) -> PyResult<PyObject> {
     unsafe {
         let dict = PyDict::new(py);
-        
+
         let process_handle = OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
             BOOL(0),            pid,
         );
-        
+
         match process_handle {
             Ok(handle) => {
                 dict.set_item("pid", pid)?;
@@ -420,11 +420,11 @@ fn get_process_info(py: Python, pid: u32) -> PyResult<PyObject> {
 #[pyfunction]
 fn get_sysmon_network_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObject>> {
     let max = max_events.unwrap_or(100);
-    
+
     py.allow_threads(|| {
         let channel = w!("Microsoft-Windows-Sysmon/Operational");
         let query = w!("*[System[(EventID=3)]]");
-        
+
         unsafe {
             let handle = match EvtQuery(
                 None,
@@ -435,11 +435,11 @@ fn get_sysmon_network_events(py: Python, max_events: Option<u32>) -> PyResult<Ve
                 Ok(h) => h,
                 Err(_) => return Ok(Vec::new()),
             };
-            
+
             let mut events = Vec::new();
             let mut returned = 0u32;
             let mut event_handles = vec![HANDLE::default(); max as usize];
-            
+
             match EvtNext(handle, &mut event_handles, 0, 0, &mut returned) {
                 Ok(_) => {},
                 Err(_) => {
@@ -447,7 +447,7 @@ fn get_sysmon_network_events(py: Python, max_events: Option<u32>) -> PyResult<Ve
                     return Ok(Vec::new());
                 }
             }
-            
+
             for i in 0..returned as usize {
                 if let Ok(xml) = render_event_as_xml(event_handles[i]) {
                     if let Ok(event) = parse_network_event(&xml) {
@@ -456,7 +456,7 @@ fn get_sysmon_network_events(py: Python, max_events: Option<u32>) -> PyResult<Ve
                 }
                 EvtClose(event_handles[i]);
             }
-            
+
             EvtClose(handle);
             Ok(events)
         }
@@ -480,9 +480,9 @@ fn parse_network_event(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
         }
         String::new()
     };
-    
+
     let mut hashes = HashMap::new();
-    
+
     Ok(SysmonEvent {
         event_id: 3,
         timestamp: extract_value("UtcTime"),
@@ -506,10 +506,10 @@ fn get_version() -> PyResult<String> {
 #[pyfunction]
 fn check_sysmon_status() -> PyResult<HashMap<String, String>> {
     let mut status = HashMap::new();
-    
+
     unsafe {
         let channel = w!("Microsoft-Windows-Sysmon/Operational");
-        
+
         match EvtOpenChannelEnum(None, 0) {
             Ok(enum_handle) => {
                 status.insert("installed".to_string(), "true".to_string());
@@ -522,7 +522,7 @@ fn check_sysmon_status() -> PyResult<HashMap<String, String>> {
             }
         }
     }
-    
+
     Ok(status)
 }
 
@@ -542,37 +542,37 @@ fn nosp_core(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(calculate_file_hash, m)?)?;
     m.add_function(wrap_pyfunction!(monitor_file_integrity, m)?)?;
     m.add_function(wrap_pyfunction!(scan_registry_autostart, m)?)?;
-    
+
     m.add_function(wrap_pyfunction!(omni_wrappers::scan_process_memory_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::dump_process_memory_py, m)?)?;
-    
+
     m.add_function(wrap_pyfunction!(omni_wrappers::list_usb_devices_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::block_usb_device_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::unblock_usb_device_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::block_all_usb_storage_py, m)?)?;
-    
+
     m.add_function(wrap_pyfunction!(omni_wrappers::sinkhole_domain_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::unsinkhole_domain_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::list_sinkholed_domains_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::clear_all_sinkholes_py, m)?)?;
-    
+
     m.add_function(wrap_pyfunction!(omni_wrappers::backup_registry_key_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::restore_registry_key_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::list_registry_backups_py, m)?)?;
-    
+
     m.add_function(wrap_pyfunction!(omni_wrappers::fim_check_changes_py, m)?)?;
     m.add_function(wrap_pyfunction!(omni_wrappers::scan_for_ransomware_extensions_py, m)?)?;
-    
+
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::enable_critical_process_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::disable_critical_process_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::is_debugger_present_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_handle_attempts_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_defense_status_py, m)?)?;
-    
+
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_vm_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_debugger_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_environment_status_py, m)?)?;
-    
+
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::start_clipboard_monitor_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::stop_clipboard_monitor_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_clipboard_history_py, m)?)?;
@@ -581,17 +581,17 @@ fn nosp_core(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::remove_from_whitelist_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_whitelist_py, m)?)?;
     m.add_function(wrap_pyfunction!(event_horizon_wrappers::is_monitoring_py, m)?)?;
-    
+
     Ok(())
 }
 
 #[pyfunction]
 fn block_ip_firewall(ip_address: String, rule_name: String) -> PyResult<bool> {
     use std::process::Command;
-    
+
     let rule_in = format!("{}_IN", rule_name);
     let rule_out = format!("{}_OUT", rule_name);
-    
+
     let output_in = Command::new("netsh")
         .args(&[
             "advfirewall", "firewall", "add", "rule",
@@ -601,7 +601,7 @@ fn block_ip_firewall(ip_address: String, rule_name: String) -> PyResult<bool> {
             &format!("remoteip={}", ip_address)
         ])
         .output();
-    
+
     let output_out = Command::new("netsh")
         .args(&[
             "advfirewall", "firewall", "add", "rule",
@@ -611,7 +611,7 @@ fn block_ip_firewall(ip_address: String, rule_name: String) -> PyResult<bool> {
             &format!("remoteip={}", ip_address)
         ])
         .output();
-    
+
     match (output_in, output_out) {
         (Ok(out_in), Ok(out_out)) if out_in.status.success() && out_out.status.success() => {
             Ok(true)
@@ -627,34 +627,34 @@ fn block_ip_firewall(ip_address: String, rule_name: String) -> PyResult<bool> {
 #[pyfunction]
 fn calculate_file_hash(file_path: String) -> PyResult<String> {
     let path = Path::new(&file_path);
-    
+
     if !path.exists() {
         return Err(PyErr::new::<pyo3::exceptions::PyFileNotFoundError, _>(
             format!("File not found: {}", file_path)
         ));
     }
-    
+
     let mut file = fs::File::open(path)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
             format!("Failed to open file: {}", e)
         ))?;
-    
+
     let mut hasher = Sha256::new();
     let mut buffer = vec![0; 8192];
-    
+
     loop {
         let bytes_read = file.read(&mut buffer)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
                 format!("Failed to read file: {}", e)
             ))?;
-        
+
         if bytes_read == 0 {
             break;
         }
-        
+
         hasher.update(&buffer[..bytes_read]);
     }
-    
+
     let result = hasher.finalize();
     Ok(hex::encode(result))
 }
@@ -662,7 +662,7 @@ fn calculate_file_hash(file_path: String) -> PyResult<String> {
 #[pyfunction]
 fn monitor_file_integrity(py: Python) -> PyResult<PyObject> {
     let dict = PyDict::new(py);
-    
+
     let critical_files = vec![
         "C:\\Windows\\System32\\ntoskrnl.exe",
         "C:\\Windows\\System32\\kernel32.dll",
@@ -673,7 +673,7 @@ fn monitor_file_integrity(py: Python) -> PyResult<PyObject> {
         "C:\\Windows\\System32\\drivers\\tcpip.sys",
         "C:\\Windows\\System32\\drivers\\ndis.sys",
     ];
-    
+
     for file_path in critical_files {
         if Path::new(file_path).exists() {
             match calculate_file_hash(file_path.to_string()) {
@@ -686,24 +686,24 @@ fn monitor_file_integrity(py: Python) -> PyResult<PyObject> {
             }
         }
     }
-    
+
     Ok(dict.into())
 }
 
 #[pyfunction]
 fn scan_registry_autostart(py: Python) -> PyResult<Vec<PyObject>> {
     let mut results = Vec::new();
-    
+
     let autostart_keys = vec![
         (HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"),
         (HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"),
         (HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"),
         (HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"),
     ];
-    
+
     for (hkey, subkey) in autostart_keys {
         let subkey_w = subkey.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
-        
+
         unsafe {
             let mut key_handle: HKEY = HKEY::default();
             let result = RegOpenKeyExW(
@@ -713,7 +713,7 @@ fn scan_registry_autostart(py: Python) -> PyResult<Vec<PyObject>> {
                 KEY_READ,
                 &mut key_handle
             );
-            
+
             if result.is_ok() {
                 let mut index = 0;
                 loop {
@@ -722,7 +722,7 @@ fn scan_registry_autostart(py: Python) -> PyResult<Vec<PyObject>> {
                     let mut data_buffer = vec![0u8; 1024];
                     let mut data_len = data_buffer.len() as u32;
                     let mut value_type = 0u32;
-                    
+
                     let enum_result = RegEnumValueW(
                         key_handle,
                         index,
@@ -733,28 +733,28 @@ fn scan_registry_autostart(py: Python) -> PyResult<Vec<PyObject>> {
                         Some(data_buffer.as_mut_ptr()),
                         Some(&mut data_len)
                     );
-                    
+
                     if enum_result.is_err() {
                         break;
                     }
-                    
+
                     let name = String::from_utf16_lossy(&name_buffer[..name_len as usize]);
                     let value = String::from_utf8_lossy(&data_buffer[..data_len as usize]).to_string();
-                    
+
                     let item = PyDict::new(py);
                     item.set_item("key", subkey)?;
                     item.set_item("name", name)?;
                     item.set_item("value", value)?;
                     results.push(item.into());
-                    
+
                     index += 1;
                 }
-                
+
                 let _ = RegCloseKey(key_handle);
             }
         }
     }
-    
+
     Ok(results)
 }
 
@@ -771,18 +771,18 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test_file.txt");
         let test_content = b"Hello, NOSP!";
-        
+
         let mut file = File::create(&file_path).unwrap();
         file.write_all(test_content).unwrap();
         drop(file);
-        
+
         let hash_result = calculate_file_hash(file_path.to_str().unwrap().to_string());
-        
+
         assert!(hash_result.is_ok());
         let hash = hash_result.unwrap();
         assert_eq!(hash.len(), 64, "SHA256 hash should be 64 characters");
         assert!(hash.chars().all(|c| c.is_ascii_hexdigit()), "Hash should only contain hex characters");
-        
+
         let hash2 = calculate_file_hash(file_path.to_str().unwrap().to_string()).unwrap();
         assert_eq!(hash, hash2, "Hash should be deterministic");
     }
@@ -801,7 +801,7 @@ mod tests {
             ("unicode_😀_test", "unicode_😀_test"),
             ("", ""),
         ];
-        
+
         for (input, expected) in test_cases {
             let result = sanitize_string(input);
             assert_eq!(result, expected, "Failed to sanitize: {}", input);
@@ -811,9 +811,9 @@ mod tests {
     #[test]
     fn test_event_parsing_basic() {
         let events = get_sysmon_events(1);
-        
+
         assert!(events.is_ok(), "get_sysmon_events should return Ok");
-        
+
         let event_list = events.unwrap();
         assert!(event_list.len() <= 1, "Should return at most 1 event when limit=1");
     }
@@ -827,27 +827,27 @@ mod tests {
     #[test]
     fn test_hash_different_files() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         let file1_path = temp_dir.path().join("file1.txt");
         let mut file1 = File::create(&file1_path).unwrap();
         file1.write_all(b"Content A").unwrap();
         drop(file1);
-        
+
         let file2_path = temp_dir.path().join("file2.txt");
         let mut file2 = File::create(&file2_path).unwrap();
         file2.write_all(b"Content B").unwrap();
         drop(file2);
-        
+
         let hash1 = calculate_file_hash(file1_path.to_str().unwrap().to_string()).unwrap();
         let hash2 = calculate_file_hash(file2_path.to_str().unwrap().to_string()).unwrap();
-        
+
         assert_ne!(hash1, hash2, "Different files should have different hashes");
     }
 
     #[test]
     fn test_registry_autostart_scan() {
         let result = scan_registry_autostart();
-        
+
         if cfg!(target_os = "windows") {
             assert!(result.is_ok(), "Registry scan should succeed on Windows");
         }
@@ -856,7 +856,7 @@ mod tests {
     #[test]
     fn test_process_termination_invalid_pid() {
         let result = terminate_process(999999);
-        
+
         assert!(result.is_err(), "Should return error for invalid PID");
     }
 

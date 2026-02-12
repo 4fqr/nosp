@@ -1,7 +1,4 @@
-/*
- * NOSP Rust Core - DNS Sinkhole Module
- * Redirect malicious domains to localhost via Windows hosts file
- */
+
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
