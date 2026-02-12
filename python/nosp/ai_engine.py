@@ -132,12 +132,11 @@ class NOSPAIEngine:
             mitre_info = self._parse_mitre_attack(analysis)
             
             logger.info(f"✓ AI analysis completed for process: {event.get('image', 'unknown')}")
-            {
-                'analysis': f"⚠ Analysis error: {str(e)}",
-                'mitre_tactic': None,
-                'mitre_technique': None,
-                'threat_level': None
-            }
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"✗ AI analysis failed: {e}")
+            return f"⚠ Analysis error: {str(e)}"
     
     def _parse_mitre_attack(self, analysis_text: str) -> Dict:
         """
@@ -173,19 +172,6 @@ class NOSPAIEngine:
             result['threat_level'] = threat_match.group(1).strip()
         
         return result
-            # Return both analysis and MITRE info
-            result = {
-                'analysis': analysis,
-                'mitre_tactic': mitre_info.get('tactic'),
-                'mitre_technique': mitre_info.get('technique'),
-                'threat_level': mitre_info.get('threat_level')
-            }
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"✗ AI analysis failed: {e}")
-            return f"⚠ Analysis error: {str(e)}"
     
     def _build_analysis_prompt(self, event: Dict) -> str:
         """Build a detailed prompt for AI analysis."""
