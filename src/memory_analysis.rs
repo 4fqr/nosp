@@ -36,10 +36,8 @@ pub struct ProcessMemoryInfo {
     pub risk_score: f32,
 }
 
-/// Scan process memory for anomalies
 pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
     unsafe {
-        // Open process
         let handle =
             OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
         
@@ -58,7 +56,6 @@ pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
             risk_score: 0.0,
         };
 
-        // Scan memory regions
         let mut address: usize = 0;
         let mut mbi: MEMORY_BASIC_INFORMATION = mem::zeroed();
 
@@ -74,7 +71,6 @@ pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
                 break;
             }
 
-            // Check if committed memory
             if mbi.State == MEM_COMMIT {
                 let is_executable = is_executable_protection(mbi.Protect);
                 let is_writable = is_writable_protection(mbi.Protect);
@@ -82,7 +78,6 @@ pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
                 if is_executable {
                     info.total_executable_pages += 1;
 
-                    // RWX pages are highly suspicious
                     if is_writable {
                         info.writable_executable_pages += 1;
                         
@@ -97,12 +92,10 @@ pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
                         info.suspicious_regions.push(region);
                     }
 
-                    // Check for code cave / hollowing
                     if is_potential_hollowing(handle, mbi.BaseAddress as usize, mbi.RegionSize) {
                         info.hollowing_detected = true;
                     }
 
-                    // Check for hooks
                     if is_potential_hook(handle, mbi.BaseAddress as usize, mbi.RegionSize) {
                         info.hook_detected = true;
                     }
@@ -114,17 +107,14 @@ pub fn scan_process_memory(pid: u32) -> Result<ProcessMemoryInfo, String> {
 
         CloseHandle(handle);
 
-        // Determine if injection detected
         info.injection_detected = info.writable_executable_pages > 0;
 
-        // Calculate risk score
         info.risk_score = calculate_memory_risk(&info);
 
         Ok(info)
     }
 }
 
-/// Check if protection flags indicate executable memory
 fn is_executable_protection(protect: u32) -> bool {
     (protect & PAGE_EXECUTE) != 0
         || (protect & PAGE_EXECUTE_READ) != 0
@@ -132,15 +122,12 @@ fn is_executable_protection(protect: u32) -> bool {
         || (protect & PAGE_EXECUTE_WRITECOPY) != 0
 }
 
-/// Check if protection flags indicate writable memory
 fn is_writable_protection(protect: u32) -> bool {
     (protect & PAGE_EXECUTE_READWRITE) != 0 || (protect & PAGE_EXECUTE_WRITECOPY) != 0
 }
 
-/// Detect potential process hollowing
 fn is_potential_hollowing(handle: HANDLE, address: usize, size: usize) -> bool {
     unsafe {
-        // Read memory at address
         let mut buffer = vec![0u8; std::cmp::min(size, 4096)];
         let mut bytes_read = 0;
 
@@ -156,14 +143,10 @@ fn is_potential_hollowing(handle: HANDLE, address: usize, size: usize) -> bool {
             return false;
         }
 
-        // Check for PE header in unexpected locations
-        // MZ signature (0x5A4D) in executable memory regions
         if buffer[0] == 0x4D && buffer[1] == 0x5A {
             return true;
         }
 
-        // Check for common shellcode patterns
-        // NOP sled (0x90)
         let nop_count = buffer.iter().take(50).filter(|&&b| b == 0x90).count();
         if nop_count > 30 {
             return true;
@@ -173,7 +156,6 @@ fn is_potential_hollowing(handle: HANDLE, address: usize, size: usize) -> bool {
     }
 }
 
-/// Detect potential API hooks
 fn is_potential_hook(handle: HANDLE, address: usize, size: usize) -> bool {
     unsafe {
         let mut buffer = vec![0u8; std::cmp::min(size, 256)];
@@ -191,18 +173,14 @@ fn is_potential_hook(handle: HANDLE, address: usize, size: usize) -> bool {
             return false;
         }
 
-        // Check for common hook patterns
-        // JMP instruction (0xE9) at function start
         if buffer[0] == 0xE9 {
             return true;
         }
 
-        // PUSH + RET trampoline (0x68 + 0xC3)
         if buffer[0] == 0x68 && buffer.len() > 5 && buffer[5] == 0xC3 {
             return true;
         }
 
-        // MOV RAX, addr; JMP RAX pattern (0x48 0xB8 ... 0xFF 0xE0)
         if buffer[0] == 0x48
             && buffer[1] == 0xB8
             && buffer.len() > 11
@@ -216,32 +194,26 @@ fn is_potential_hook(handle: HANDLE, address: usize, size: usize) -> bool {
     }
 }
 
-/// Calculate memory-based risk score
 fn calculate_memory_risk(info: &ProcessMemoryInfo) -> f32 {
     let mut risk = 0.0;
 
-    // RWX pages are critical indicators
     if info.writable_executable_pages > 0 {
         risk += 30.0 * (info.writable_executable_pages as f32).min(5.0);
     }
 
-    // Hollowing detection adds major risk
     if info.hollowing_detected {
         risk += 40.0;
     }
 
-    // Hook detection adds major risk
     if info.hook_detected {
         risk += 35.0;
     }
 
-    // Multiple suspicious regions compound risk
     risk += (info.suspicious_regions.len() as f32 * 10.0).min(30.0);
 
     risk.min(100.0)
 }
 
-/// Dump process memory to file
 pub fn dump_process_memory(pid: u32, output_path: &str) -> Result<(), String> {
     use std::fs::File;
     use std::io::Write;
@@ -257,7 +229,6 @@ pub fn dump_process_memory(pid: u32, output_path: &str) -> Result<(), String> {
         let mut dump_file =
             File::create(output_path).map_err(|e| format!("Failed to create dump file: {}", e))?;
 
-        // Write header
         writeln!(dump_file, "NOSP Memory Dump - PID: {}", pid)
             .map_err(|e| format!("Write error: {}", e))?;
         writeln!(dump_file, "Timestamp: {}", chrono::Local::now())
@@ -265,7 +236,6 @@ pub fn dump_process_memory(pid: u32, output_path: &str) -> Result<(), String> {
         writeln!(dump_file, "\n--- Memory Regions ---\n")
             .map_err(|e| format!("Write error: {}", e))?;
 
-        // Scan and dump memory regions
         let mut address: usize = 0;
         let mut mbi: MEMORY_BASIC_INFORMATION = mem::zeroed();
         let mut total_dumped = 0;
@@ -283,7 +253,6 @@ pub fn dump_process_memory(pid: u32, output_path: &str) -> Result<(), String> {
             }
 
             if mbi.State == MEM_COMMIT {
-                // Read memory content
                 let mut buffer = vec![0u8; mbi.RegionSize];
                 let mut bytes_read = 0;
 
@@ -306,7 +275,6 @@ pub fn dump_process_memory(pid: u32, output_path: &str) -> Result<(), String> {
                     )
                     .map_err(|e| format!("Write error: {}", e))?;
 
-                    // Write hex dump (first 256 bytes of each region)
                     let dump_size = bytes_read.min(256);
                     for i in (0..dump_size).step_by(16) {
                         write!(dump_file, "{:08X}: ", mbi.BaseAddress as usize + i)
@@ -363,7 +331,6 @@ mod tests {
 
     #[test]
     fn test_memory_scan() {
-        // Test on own process
         let pid = std::process::id();
         let result = scan_process_memory(pid);
         assert!(result.is_ok());

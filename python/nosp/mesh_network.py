@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 NOSP EVENT HORIZON - The Hive Mind (P2P Mesh Network)
 ======================================================
@@ -39,21 +39,19 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import secrets
 import logging
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Protocol constants
-DISCOVERY_PORT = 41337  # UDP port for peer discovery
-MESH_PORT = 41338       # TCP port for mesh communication
-BROADCAST_INTERVAL = 10  # Seconds between discovery broadcasts
+DISCOVERY_PORT = 41337
+MESH_PORT = 41338
+BROADCAST_INTERVAL = 10
 PROTOCOL_VERSION = "1.0.0-EVENT-HORIZON"
-MAGIC_BYTES = b"NOSP"   # Packet identifier
+MAGIC_BYTES = b"NOSP"
 
 
 @dataclass
@@ -116,11 +114,10 @@ class MeshCrypto:
             passphrase: Shared secret for mesh network
                        (Users should change this for production)
         """
-        # Derive 256-bit key from passphrase using PBKDF2
-        kdf = PBKDF2(
+        kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
-            length=32,  # 256 bits
-            salt=b"NOSP-SALT",  # Static salt (acceptable for mesh network)
+            length=32,
+            salt=b"NOSP-SALT",
             iterations=100000
         )
         self.key = kdf.derive(passphrase.encode())
@@ -136,7 +133,7 @@ class MeshCrypto:
         Returns:
             nonce (12 bytes) + ciphertext + tag (16 bytes)
         """
-        nonce = secrets.token_bytes(12)  # 96-bit nonce
+        nonce = secrets.token_bytes(12)
         ciphertext = self.aesgcm.encrypt(nonce, plaintext, None)
         return nonce + ciphertext
     
@@ -182,16 +179,13 @@ class MeshNetwork:
         self.hostname = socket.gethostname()
         self.crypto = MeshCrypto(passphrase)
         
-        # Peer management
-        self.peers: Dict[str, Peer] = {}  # node_id -> Peer
-        self.threat_signals: Dict[str, ThreatSignal] = {}  # signal_id -> ThreatSignal
-        self.threat_consensus: Dict[str, Set[str]] = {}  # threat_value -> set of reporting nodes
+        self.peers: Dict[str, Peer] = {}
+        self.threat_signals: Dict[str, ThreatSignal] = {}
+        self.threat_consensus: Dict[str, Set[str]] = {}
         
-        # Callbacks
         self.on_threat_detected: Optional[Callable] = None
         self.on_consensus_reached: Optional[Callable] = None
         
-        # Network state
         self.running = False
         self.discovery_task = None
         self.server_task = None
@@ -205,13 +199,11 @@ class MeshNetwork:
         """
         hostname = socket.gethostname()
         
-        # Try to get MAC address
         try:
             import uuid
             mac = uuid.getnode()
             unique_string = f"{hostname}-{mac}"
         except:
-            # Fallback to just hostname + random
             unique_string = f"{hostname}-{secrets.token_hex(8)}"
         
         return hashlib.sha256(unique_string.encode()).hexdigest()
@@ -224,7 +216,6 @@ class MeshNetwork:
             IP address string
         """
         try:
-            # Create UDP socket to determine local IP
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
@@ -244,10 +235,8 @@ class MeshNetwork:
         self.running = True
         logger.info(f"Starting NOSP Hive Mind - Node ID: {self.node_id[:16]}...")
         
-        # Start discovery broadcaster
         self.discovery_task = asyncio.create_task(self._discovery_loop())
         
-        # Start threat signal server
         self.server_task = asyncio.create_task(self._start_server())
         
         logger.info(f"Mesh network active on {self._get_local_ip()}:{MESH_PORT}")
@@ -270,12 +259,10 @@ class MeshNetwork:
         """
         Periodically broadcast discovery packets to find peers.
         """
-        # Create UDP socket for broadcasting
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         
-        # Bind to receive discovery responses
         sock.bind(('', DISCOVERY_PORT))
         sock.setblocking(False)
         
@@ -283,7 +270,6 @@ class MeshNetwork:
         
         while self.running:
             try:
-                # Broadcast discovery packet
                 discovery_packet = {
                     "type": "DISCOVERY",
                     "version": PROTOCOL_VERSION,
@@ -296,18 +282,15 @@ class MeshNetwork:
                 
                 packet_json = json.dumps(discovery_packet).encode()
                 
-                # Add magic bytes
                 packet = MAGIC_BYTES + packet_json
                 
-                # Broadcast to LAN
                 sock.sendto(packet, ('<broadcast>', DISCOVERY_PORT))
                 
-                # Listen for responses (non-blocking)
                 try:
                     data, addr = sock.recvfrom(4096)
                     asyncio.create_task(self._handle_discovery_packet(data, addr[0]))
                 except BlockingIOError:
-                    pass  # No data available
+                    pass
                 
                 await asyncio.sleep(BROADCAST_INTERVAL)
                 
@@ -324,23 +307,18 @@ class MeshNetwork:
             source_ip: Source IP address
         """
         try:
-            # Check magic bytes
             if not data.startswith(MAGIC_BYTES):
                 return
             
-            # Parse JSON
             packet_json = data[len(MAGIC_BYTES):]
             packet = json.loads(packet_json.decode())
             
-            # Validate packet type
             if packet.get("type") != "DISCOVERY":
                 return
             
-            # Don't add ourselves
             if packet["node_id"] == self.node_id:
                 return
             
-            # Add or update peer
             peer = Peer(
                 node_id=packet["node_id"],
                 hostname=packet["hostname"],
@@ -381,24 +359,19 @@ class MeshNetwork:
         logger.debug(f"Connection from {addr}")
         
         try:
-            # Read packet length (4 bytes)
             length_bytes = await reader.readexactly(4)
             packet_length = struct.unpack('>I', length_bytes)[0]
             
-            # Read encrypted packet
             encrypted_data = await reader.readexactly(packet_length)
             
-            # Decrypt
             decrypted_data = self.crypto.decrypt(encrypted_data)
             if decrypted_data is None:
                 logger.warning(f"Failed to decrypt packet from {addr}")
                 return
             
-            # Parse threat signal
             signal_data = json.loads(decrypted_data.decode())
             signal = ThreatSignal(**signal_data)
             
-            # Process signal
             await self._process_threat_signal(signal)
             
         except Exception as e:
@@ -415,30 +388,24 @@ class MeshNetwork:
         Args:
             signal: Threat signal to process
         """
-        # Store signal
         self.threat_signals[signal.signal_id] = signal
         
-        # Update consensus tracking
         if signal.threat_value not in self.threat_consensus:
             self.threat_consensus[signal.threat_value] = set()
         
         self.threat_consensus[signal.threat_value].add(signal.source_node)
         
-        # Update peer stats
         if signal.source_node in self.peers:
             self.peers[signal.source_node].threat_count += 1
         
-        # Check consensus (>2 nodes reporting same threat)
         reporting_nodes = len(self.threat_consensus[signal.threat_value])
         
         logger.info(f"Threat signal received: {signal.threat_type}={signal.threat_value} "
                    f"(consensus: {reporting_nodes} nodes)")
         
-        # Trigger callback
         if self.on_threat_detected:
             self.on_threat_detected(signal)
         
-        # Check if consensus reached
         if reporting_nodes >= 2 and self.on_consensus_reached:
             self.on_consensus_reached(signal)
             logger.warning(f"CONSENSUS REACHED: {signal.threat_value} confirmed by {reporting_nodes} nodes")
@@ -464,10 +431,8 @@ class MeshNetwork:
             metadata=metadata or {}
         )
         
-        # Store locally
         self.threat_signals[signal.signal_id] = signal
         
-        # Broadcast to all peers
         for peer in self.peers.values():
             try:
                 await self._send_signal_to_peer(peer, signal)
@@ -484,17 +449,13 @@ class MeshNetwork:
             peer: Target peer
             signal: Threat signal to send
         """
-        # Serialize signal
         signal_json = json.dumps(asdict(signal)).encode()
         
-        # Encrypt
         encrypted_data = self.crypto.encrypt(signal_json)
         
-        # Prepend length
         packet_length = len(encrypted_data)
         packet = struct.pack('>I', packet_length) + encrypted_data
         
-        # Send via TCP
         reader, writer = await asyncio.open_connection(peer.ip_address, MESH_PORT)
         writer.write(packet)
         await writer.drain()
@@ -508,7 +469,6 @@ class MeshNetwork:
         Returns:
             Peer count
         """
-        # Remove stale peers (not seen in 60 seconds)
         current_time = time.time()
         stale_peers = [
             node_id for node_id, peer in self.peers.items()
@@ -559,7 +519,6 @@ class MeshNetwork:
         return [asdict(signal) for signal in signals]
 
 
-# Singleton instance
 _mesh_instance: Optional[MeshNetwork] = None
 
 
@@ -576,7 +535,6 @@ def get_mesh() -> MeshNetwork:
     return _mesh_instance
 
 
-# Demo
 if __name__ == "__main__":
     async def demo():
         print("NOSP EVENT HORIZON - Mesh Network Demo")
@@ -584,7 +542,6 @@ if __name__ == "__main__":
         
         mesh = MeshNetwork()
         
-        # Setup callbacks
         def on_threat(signal: ThreatSignal):
             print(f"  👁️ Threat detected: {signal.threat_type}={signal.threat_value} "
                   f"(risk: {signal.risk_score})")
@@ -595,13 +552,11 @@ if __name__ == "__main__":
         mesh.on_threat_detected = on_threat
         mesh.on_consensus_reached = on_consensus
         
-        # Start mesh
         await mesh.start()
         print(f"\n✓ Hive Mind active (Node: {mesh.node_id[:16]}...)")
         print(f"  IP: {mesh._get_local_ip()}")
         print(f"  Listening on UDP:{DISCOVERY_PORT}, TCP:{MESH_PORT}")
         
-        # Wait for peers
         print("\nDiscovering peers (press Ctrl+C to stop)...")
         
         try:

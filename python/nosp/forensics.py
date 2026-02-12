@@ -39,7 +39,6 @@ class ProcessTree:
         parent_image = event.get('parent_image', 'unknown')
         risk_score = event.get('risk_score', 0)
         
-        # Store process data
         self.process_data[process_id] = {
             'guid': process_guid,
             'image': image,
@@ -49,7 +48,6 @@ class ProcessTree:
             'cmdline': event.get('command_line', '')
         }
         
-        # Add node to graph
         self.graph.add_node(
             process_id,
             label=Path(image).name,
@@ -57,8 +55,6 @@ class ProcessTree:
             full_path=image
         )
         
-        # Try to find parent and create edge
-        # This is simplified - real implementation needs parent PID tracking
         for pid, data in self.process_data.items():
             if data['image'].lower() in parent_image.lower() and pid != process_id:
                 self.graph.add_edge(pid, process_id)
@@ -91,13 +87,12 @@ class ProcessTree:
         
         for node in self.graph.nodes():
             if self.graph.nodes[node].get('risk', 0) >= min_risk:
-                # Get all paths from root to this node
                 try:
                     roots = [n for n in self.graph.nodes() if self.graph.in_degree(n) == 0]
                     for root in roots:
                         if nx.has_path(self.graph, root, node):
                             path = nx.shortest_path(self.graph, root, node)
-                            if len(path) > 1:  # Only multi-node chains
+                            if len(path) > 1:
                                 suspicious.append(path)
                 except:
                     pass
@@ -111,7 +106,6 @@ class ProcessTree:
         if pid not in self.process_data:
             return lineage
         
-        # Traverse upwards
         current = pid
         visited = set()
         
@@ -120,7 +114,6 @@ class ProcessTree:
             if current in self.process_data:
                 lineage.append(self.process_data[current])
                 
-                # Find parent
                 for edge in self.graph.in_edges(current):
                     current = edge[0]
                     break
@@ -129,7 +122,7 @@ class ProcessTree:
             else:
                 break
         
-        return lineage[::-1]  # Reverse to show from parent to child
+        return lineage[::-1]
 
 
 class ForensicReporter:
@@ -160,18 +153,15 @@ class ForensicReporter:
         pdf = FPDF()
         pdf.add_page()
         
-        # Header
         pdf.set_font('Arial', 'B', 24)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 20, 'NOSP SECURITY INCIDENT REPORT', 0, 1, 'C')
         
-        # Timestamp
         pdf.set_font('Arial', '', 10)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 10, f'Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 0, 1, 'C')
         pdf.ln(10)
         
-        # Executive Summary
         pdf.set_font('Arial', 'B', 16)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 10, 'EXECUTIVE SUMMARY', 0, 1)
@@ -189,13 +179,11 @@ class ForensicReporter:
             pdf.cell(0, 8, line, 0, 1)
         pdf.ln(10)
         
-        # High-Risk Events Table
         if events:
             pdf.set_font('Arial', 'B', 16)
             pdf.cell(0, 10, 'HIGH-RISK EVENTS DETECTED', 0, 1)
             pdf.set_font('Arial', 'B', 10)
             
-            # Table header
             pdf.cell(30, 8, 'Risk Score', 1, 0, 'C')
             pdf.cell(50, 8, 'Process', 1, 0, 'C')
             pdf.cell(50, 8, 'User', 1, 0, 'C')
@@ -203,11 +191,9 @@ class ForensicReporter:
             
             pdf.set_font('Arial', '', 9)
             
-            # Table rows (top 20 high-risk events)
             for event in sorted(events, key=lambda x: x.get('risk_score', 0), reverse=True)[:20]:
                 risk = event.get('risk_score', 0)
                 
-                # Color code by risk
                 if risk >= 75:
                     pdf.set_fill_color(255, 200, 200)
                 elif risk >= 60:
@@ -228,7 +214,6 @@ class ForensicReporter:
         
         pdf.ln(10)
         
-        # Recommendations
         pdf.add_page()
         pdf.set_font('Arial', 'B', 16)
         pdf.cell(0, 10, 'RECOMMENDATIONS', 0, 1)
@@ -239,14 +224,12 @@ class ForensicReporter:
             pdf.multi_cell(0, 8, f'• {rec}')
             pdf.ln(2)
         
-        # Footer
         pdf.ln(20)
         pdf.set_font('Arial', 'I', 10)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 10, 'NOSP - Null OS Security Program', 0, 1, 'C')
         pdf.cell(0, 5, 'Confidential Security Report', 0, 1, 'C')
         
-        # Save PDF
         if output_path is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = f"nosp_data/incident_report_{timestamp}.pdf"
@@ -273,14 +256,12 @@ class ForensicReporter:
                 "Review and analyze all high-risk events for potential security breaches."
             )
         
-        # Check for common attack patterns
         powershell_count = len([e for e in events if 'powershell' in e.get('image', '').lower()])
         if powershell_count > 5:
             recommendations.append(
                 f"PowerShell activity detected ({powershell_count} instances). Review for malicious scripts."
             )
         
-        # Check for Office spawning processes
         office_spawns = [e for e in events if any(app in e.get('parent_image', '').lower() 
                                                    for app in ['winword', 'excel', 'outlook'])]
         if office_spawns:
@@ -336,7 +317,6 @@ class TimelineAnalyzer:
                 event_time = datetime.fromisoformat(event.get('timestamp', ''))
                 count = 1
                 
-                # Count events within window
                 for j in range(i + 1, len(self.events)):
                     next_time = datetime.fromisoformat(self.events[j].get('timestamp', ''))
                     if next_time - event_time <= window:
@@ -365,11 +345,9 @@ class TimelineAnalyzer:
             image = Path(event.get('image', '')).name.lower()
             
             if image == process_names_lower[0]:
-                # Start of potential sequence
                 sequence = [event]
                 next_idx = 1
                 
-                # Look ahead for remaining processes
                 for j in range(i + 1, min(i + 100, len(self.events))):
                     next_image = Path(self.events[j].get('image', '')).name.lower()
                     if next_image == process_names_lower[next_idx]:

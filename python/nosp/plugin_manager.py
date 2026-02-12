@@ -93,10 +93,8 @@ class PluginManager:
             'events_processed': 0
         }
         
-        # Create example plugin if none exist
         self._create_example_plugins()
         
-        # Load all plugins
         self.load_all_plugins()
     
     def load_plugin(self, plugin_path: Path) -> bool:
@@ -110,7 +108,6 @@ class PluginManager:
             True if loaded successfully
         """
         try:
-            # Load module
             spec = importlib.util.spec_from_file_location(
                 plugin_path.stem,
                 plugin_path
@@ -123,7 +120,6 @@ class PluginManager:
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             
-            # Find plugin classes (subclasses of PluginBase)
             plugin_classes = []
             for name, obj in inspect.getmembers(module):
                 if inspect.isclass(obj) and issubclass(obj, PluginBase) and obj != PluginBase:
@@ -133,15 +129,12 @@ class PluginManager:
                 logger.warning(f"No plugin classes found in {plugin_path}")
                 return False
             
-            # Instantiate first plugin class found
             plugin_class = plugin_classes[0]
             plugin = plugin_class()
             
-            # Get plugin info
             info = plugin.get_info()
             plugin_name = info['name']
             
-            # Store plugin
             self.plugins[plugin_name] = plugin
             self.plugin_info[plugin_name] = PluginInfo(
                 name=plugin_name,
@@ -152,7 +145,6 @@ class PluginManager:
                 enabled=True
             )
             
-            # Initialize plugin
             plugin.on_init()
             
             logger.info(f"✓ Loaded plugin: {plugin_name} v{info.get('version', '1.0')}")
@@ -175,7 +167,6 @@ class PluginManager:
         """
         loaded = 0
         
-        # Find all .py files
         plugin_files = list(self.plugins_dir.glob("*.py"))
         
         if not plugin_files:
@@ -185,7 +176,6 @@ class PluginManager:
         logger.info(f"Loading plugins from {self.plugins_dir}...")
         
         for plugin_file in plugin_files:
-            # Skip __init__.py and private files
             if plugin_file.name.startswith('_'):
                 continue
             
@@ -204,14 +194,12 @@ class PluginManager:
         """
         logger.info("Hot-reloading plugins...")
         
-        # Shutdown existing plugins
         for plugin_name, plugin in self.plugins.items():
             try:
                 plugin.on_shutdown()
             except:
                 pass
         
-        # Clear plugins
         self.plugins.clear()
         self.plugin_info.clear()
         self.stats = {
@@ -222,7 +210,6 @@ class PluginManager:
             'events_processed': self.stats['events_processed']
         }
         
-        # Reload
         return self.load_all_plugins()
     
     def enable_plugin(self, plugin_name: str) -> bool:
@@ -265,17 +252,13 @@ class PluginManager:
         
         current_event = event
         
-        # Process through each enabled plugin
         for plugin_name, plugin in self.plugins.items():
-            # Skip disabled plugins
             if not self.plugin_info[plugin_name].enabled:
                 continue
             
             try:
-                # Process event
                 current_event = plugin.on_event(current_event)
                 
-                # If plugin filters out event (returns None), stop pipeline
                 if current_event is None:
                     logger.debug(f"Event filtered by plugin: {plugin_name}")
                     return None
@@ -283,7 +266,6 @@ class PluginManager:
             except Exception as e:
                 logger.error(f"Plugin {plugin_name} failed: {e}")
                 logger.debug(traceback.format_exc())
-                # Continue with other plugins
                 continue
         
         return current_event
@@ -323,7 +305,6 @@ import json
 from datetime import datetime
 import sys
 
-# Add NOSP to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from python.nosp.plugin_manager import PluginBase
 
@@ -351,7 +332,7 @@ class EventLoggerPlugin(PluginBase):
         except:
             pass
         
-        return event  # Pass through unchanged
+        return event
     
     def on_shutdown(self):
         print("[EventLogger] Shutting down")
@@ -367,7 +348,6 @@ Only passes through events with risk score > 50
 from pathlib import Path
 import sys
 
-# Add NOSP to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from python.nosp.plugin_manager import PluginBase
 
@@ -394,9 +374,9 @@ class HighRiskFilterPlugin(PluginBase):
         
         if risk_score <= self.threshold:
             self.filtered_count += 1
-            return None  # Filter out
+            return None
         
-        return event  # Pass through
+        return event
     
     def on_shutdown(self):
         print(f"[HighRiskFilter] Filtered {self.filtered_count} events")

@@ -20,7 +20,7 @@ class SecurityCheck:
     check_command: str
     fix_command: str
     expected_value: str
-    severity: str  # critical, high, medium, low
+    severity: str
 
 
 class SystemHardener:
@@ -40,7 +40,6 @@ class SystemHardener:
         self.checks: List[SecurityCheck] = []
         self.audit_results: Dict[str, Dict] = {}
         
-        # Initialize security checks
         self._initialize_checks()
     
     def _initialize_checks(self):
@@ -60,7 +59,7 @@ class SystemHardener:
                 description="Enables cloud-based threat intelligence",
                 check_command="Get-MpPreference | Select-Object -ExpandProperty MAPSReporting",
                 fix_command="Set-MpPreference -MAPSReporting Advanced",
-                expected_value="2",  # Advanced
+                expected_value="2",
                 severity="high"
             ),
             SecurityCheck(
@@ -108,7 +107,7 @@ class SystemHardener:
                 description="Ensures Windows Update automatic installation is enabled",
                 check_command="(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -ErrorAction SilentlyContinue).AUOptions",
                 fix_command="# Note: Managed via Group Policy or Settings app",
-                expected_value="4",  # Auto download and install
+                expected_value="4",
                 severity="medium"
             ),
             SecurityCheck(
@@ -124,7 +123,7 @@ class SystemHardener:
                 description="Checks if RDP is enabled (should be disabled unless needed)",
                 check_command="(Get-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server').fDenyTSConnections",
                 fix_command="Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' -Name fDenyTSConnections -Value 1",
-                expected_value="1",  # 1 = Disabled
+                expected_value="1",
                 severity="medium"
             )
         ]
@@ -137,7 +136,6 @@ class SystemHardener:
             Tuple of (success, stdout, stderr)
         """
         try:
-            # Run PowerShell with ExecutionPolicy Bypass for this command
             result = subprocess.run(
                 ["powershell", "-ExecutionPolicy", "Bypass", "-Command", command],
                 capture_output=True,
@@ -174,7 +172,6 @@ class SystemHardener:
             success, stdout, stderr = self.run_powershell_command(check.check_command)
             
             if success:
-                # Compare actual value with expected
                 actual_value = stdout
                 is_compliant = self._compare_values(actual_value, check.expected_value)
                 
@@ -187,7 +184,6 @@ class SystemHardener:
                     'error': None
                 }
             else:
-                # Check failed to execute
                 self.audit_results[check.name] = {
                     'description': check.description,
                     'severity': check.severity,
@@ -205,11 +201,9 @@ class SystemHardener:
         actual_clean = actual.strip().lower()
         expected_clean = expected.strip().lower()
         
-        # Direct match
         if actual_clean == expected_clean:
             return True
         
-        # Numeric comparison
         try:
             return int(actual_clean) == int(expected_clean)
         except:
@@ -230,9 +224,7 @@ class SystemHardener:
         logger.info("Starting system hardening...")
         results = {}
         
-        # Determine which checks to fix
         if checks_to_fix is None:
-            # Fix all non-compliant checks
             checks_to_fix = [
                 name for name, result in self.audit_results.items()
                 if not result['compliant'] and result['error'] is None
@@ -244,13 +236,11 @@ class SystemHardener:
             
             logger.info(f"Hardening: {check.name}")
             
-            # Skip if no fix command or it's a note
             if not check.fix_command or check.fix_command.startswith("#"):
                 logger.warning(f"No automated fix available for: {check.name}")
                 results[check.name] = False
                 continue
             
-            # Execute fix command
             success, stdout, stderr = self.run_powershell_command(check.fix_command)
             results[check.name] = success
             
@@ -294,7 +284,6 @@ class SystemHardener:
             else:
                 summary['non_compliant'] += 1
             
-            # Count by severity
             severity = result['severity']
             if severity in summary:
                 if not result['compliant'] and not result['error']:

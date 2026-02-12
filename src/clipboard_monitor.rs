@@ -76,7 +76,6 @@ pub struct ClipboardMonitor {
     whitelist: Arc<Mutex<Vec<String>>>
 }
 
-// Regex patterns for sensitive data (compiled once)
 static BTC_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$").unwrap()
 });
@@ -143,17 +142,14 @@ impl ClipboardMonitor {
             return ClipboardContentType::Empty;
         }
         
-        // Check for SSH keys (highest priority)
         if SSH_KEY_REGEX.is_match(trimmed) {
             return ClipboardContentType::SSHKey;
         }
         
-        // Check for private keys
         if trimmed.len() >= 40 && PRIVATE_KEY_REGEX.is_match(trimmed) {
             return ClipboardContentType::PrivateKey;
         }
         
-        // Check for cryptocurrency addresses
         if BTC_REGEX.is_match(trimmed) {
             return ClipboardContentType::Bitcoin;
         }
@@ -166,7 +162,6 @@ impl ClipboardMonitor {
             return ClipboardContentType::Monero;
         }
         
-        // Check for credit card
         if CREDIT_CARD_REGEX.is_match(trimmed) && Self::luhn_check(trimmed) {
             return ClipboardContentType::CreditCard;
         }
@@ -226,13 +221,11 @@ impl ClipboardMonitor {
         let prev_type = Self::detect_content_type(previous);
         let curr_type = Self::detect_content_type(current);
         
-        // Check if same type but different content (address replacement)
         if prev_type == curr_type && previous != current {
             match curr_type {
                 ClipboardContentType::Bitcoin | 
                 ClipboardContentType::Ethereum | 
                 ClipboardContentType::Monero => {
-                    // Check if new address is whitelisted
                     let whitelist = self.whitelist.lock().unwrap();
                     if !whitelist.contains(&current.to_string()) {
                         return (
@@ -259,7 +252,7 @@ impl ClipboardMonitor {
     pub fn start_monitoring(&self) {
         let mut is_monitoring = self.is_monitoring.lock().unwrap();
         if *is_monitoring {
-            return; // Already monitoring
+            return;
         }
         *is_monitoring = true;
         drop(is_monitoring);
@@ -273,7 +266,6 @@ impl ClipboardMonitor {
             use clipboard_win::{Clipboard, formats};
             
             loop {
-                // Check if monitoring stopped
                 {
                     let monitoring = is_monitoring_flag.lock().unwrap();
                     if !*monitoring {
@@ -281,12 +273,10 @@ impl ClipboardMonitor {
                     }
                 }
                 
-                // Try to get clipboard content
                 if let Ok(_clip) = Clipboard::new_attempts(10) {
                     if let Ok(content) = formats::Unicode::read_clipboard() {
                         let mut last = last_content.lock().unwrap();
                         
-                        // Check if content changed
                         if content != *last {
                             let content_type = Self::detect_content_type(&content);
                             let is_sensitive = matches!(
@@ -299,7 +289,6 @@ impl ClipboardMonitor {
                                 ClipboardContentType::SSHKey
                             );
                             
-                            // Check for hijacking
                             let monitor = ClipboardMonitor {
                                 history: Arc::clone(&history),
                                 last_content: Arc::clone(&last_content),
@@ -309,7 +298,6 @@ impl ClipboardMonitor {
                             
                             let (is_suspicious, warning) = monitor.check_suspicious(&last, &content);
                             
-                            // Create event
                             let event = ClipboardEvent {
                                 timestamp: std::time::SystemTime::now()
                                     .duration_since(std::time::UNIX_EPOCH)
@@ -322,7 +310,6 @@ impl ClipboardMonitor {
                                 warning_message: warning
                             };
                             
-                            // Add to history (keep last 10)
                             let mut hist = history.lock().unwrap();
                             hist.push(event);
                             if hist.len() > 10 {
@@ -330,13 +317,12 @@ impl ClipboardMonitor {
                             }
                             drop(hist);
                             
-                            // Update last content
                             *last = content;
                         }
                     }
                 }
                 
-                thread::sleep(Duration::from_millis(500)); // Check every 500ms
+                thread::sleep(Duration::from_millis(500));
             }
         });
     }
@@ -416,9 +402,7 @@ mod tests {
     
     #[test]
     fn test_luhn_check() {
-        // Valid test card number
         assert!(ClipboardMonitor::luhn_check("4532015112830366"));
-        // Invalid
         assert!(!ClipboardMonitor::luhn_check("1234567890123456"));
     }
     

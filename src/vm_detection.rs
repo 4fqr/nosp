@@ -45,7 +45,7 @@ use winreg::RegKey;
 pub struct VMDetection {
     pub is_vm: bool,
     pub vm_type: Option<String>,
-    pub confidence: u8,  // 0-100
+    pub confidence: u8,
     pub indicators: Vec<String>
 }
 
@@ -71,14 +71,12 @@ pub fn detect_vm() -> VMDetection {
     let mut vm_type: Option<String> = None;
     let mut confidence = 0u8;
     
-    // Check #1: Registry keys
     if let Some(vm_reg) = check_vm_registry() {
         indicators.push(format!("Registry: {} keys found", vm_reg));
         vm_type = Some(vm_reg.clone());
         confidence += 35;
     }
     
-    // Check #2: Process names
     if let Some(vm_proc) = check_vm_processes() {
         indicators.push(format!("Process: {} detected", vm_proc));
         if vm_type.is_none() {
@@ -87,13 +85,11 @@ pub fn detect_vm() -> VMDetection {
         confidence += 30;
     }
     
-    // Check #3: MAC address prefixes
     if let Some(vm_mac) = check_vm_mac_address() {
         indicators.push(format!("MAC prefix: {}", vm_mac));
         confidence += 20;
     }
     
-    // Check #4: BIOS information
     if let Some(vm_bios) = check_vm_bios() {
         indicators.push(format!("BIOS: {}", vm_bios));
         confidence += 15;
@@ -117,7 +113,6 @@ pub fn detect_vm() -> VMDetection {
 fn check_vm_registry() -> Option<String> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     
-    // VMware registry keys
     let vmware_keys = vec![
         r"SOFTWARE\VMware, Inc.\VMware Tools",
         r"SYSTEM\CurrentControlSet\Services\vmci",
@@ -130,7 +125,6 @@ fn check_vm_registry() -> Option<String> {
         }
     }
     
-    // VirtualBox registry keys
     let vbox_keys = vec![
         r"SOFTWARE\Oracle\VirtualBox Guest Additions",
         r"SYSTEM\CurrentControlSet\Services\VBoxGuest",
@@ -143,7 +137,6 @@ fn check_vm_registry() -> Option<String> {
         }
     }
     
-    // Hyper-V registry keys
     let hyperv_keys = vec![
         r"SOFTWARE\Microsoft\Virtual Machine\Guest\Parameters",
         r"SYSTEM\CurrentControlSet\Services\vmbus"
@@ -155,7 +148,6 @@ fn check_vm_registry() -> Option<String> {
         }
     }
     
-    // QEMU/KVM
     if hklm.open_subkey(r"HARDWARE\DEVICEMAP\Scsi\Scsi Port 0\Scsi Bus 0\Target Id 0\Logical Unit Id 0").is_ok() {
         if let Ok(scsi_key) = hklm.open_subkey(r"HARDWARE\DEVICEMAP\Scsi\Scsi Port 0\Scsi Bus 0\Target Id 0\Logical Unit Id 0") {
             if let Ok(identifier) = scsi_key.get_value::<String, _>("Identifier") {
@@ -177,14 +169,12 @@ fn check_vm_registry() -> Option<String> {
  * - None otherwise
  */
 fn check_vm_processes() -> Option<String> {
-    // Get process list via tasklist
     let output = Command::new("tasklist.exe")
         .output();
     
     if let Ok(output) = output {
         let processes = String::from_utf8_lossy(&output.stdout).to_lowercase();
         
-        // VMware processes
         let vmware_procs = vec!["vmtoolsd.exe", "vmwaretray.exe", "vmwareuser.exe"];
         for proc in vmware_procs {
             if processes.contains(proc) {
@@ -192,7 +182,6 @@ fn check_vm_processes() -> Option<String> {
             }
         }
         
-        // VirtualBox processes
         let vbox_procs = vec!["vboxservice.exe", "vboxtray.exe"];
         for proc in vbox_procs {
             if processes.contains(proc) {
@@ -200,7 +189,6 @@ fn check_vm_processes() -> Option<String> {
             }
         }
         
-        // Parallels
         if processes.contains("prl_tools.exe") {
             return Some("Parallels".to_string());
         }
@@ -220,7 +208,6 @@ fn check_vm_processes() -> Option<String> {
  * - None otherwise
  */
 fn check_vm_mac_address() -> Option<String> {
-    // Get MAC addresses via getmac
     let output = Command::new("getmac.exe")
         .arg("/fo")
         .arg("csv")
@@ -230,22 +217,18 @@ fn check_vm_mac_address() -> Option<String> {
     if let Ok(output) = output {
         let mac_output = String::from_utf8_lossy(&output.stdout);
         
-        // VMware MACs: 00:50:56, 00:0C:29, 00:05:69
         if mac_output.contains("00-50-56") || mac_output.contains("00-0C-29") || mac_output.contains("00-05-69") {
             return Some("VMware".to_string());
         }
         
-        // VirtualBox MACs: 08:00:27
         if mac_output.contains("08-00-27") {
             return Some("VirtualBox".to_string());
         }
         
-        // Hyper-V MACs: 00:15:5D
         if mac_output.contains("00-15-5D") {
             return Some("Hyper-V".to_string());
         }
         
-        // Parallels MACs: 00:1C:42
         if mac_output.contains("00-1C-42") {
             return Some("Parallels".to_string());
         }
@@ -262,7 +245,6 @@ fn check_vm_mac_address() -> Option<String> {
  * - None otherwise
  */
 fn check_vm_bios() -> Option<String> {
-    // Query BIOS manufacturer via WMI
     let output = Command::new("wmic.exe")
         .args(&["bios", "get", "manufacturer"])
         .output();
@@ -298,7 +280,6 @@ pub fn detect_debugger() -> DebuggerDetection {
     let mut debugger_type: Option<String> = None;
     let mut confidence = 0u8;
     
-    // Check #1: IsDebuggerPresent API
     unsafe {
         use windows::Win32::System::Diagnostics::Debug::IsDebuggerPresent;
         
@@ -309,7 +290,6 @@ pub fn detect_debugger() -> DebuggerDetection {
         }
     }
     
-    // Check #2: Remote debugger check
     unsafe {
         use windows::Win32::System::Diagnostics::Debug::CheckRemoteDebuggerPresent;
         use windows::Win32::System::Threading::GetCurrentProcess;
@@ -324,15 +304,11 @@ pub fn detect_debugger() -> DebuggerDetection {
         }
     }
     
-    // Check #3: NtGlobalFlag (PEB.NtGlobalFlag)
-    // When debugging, this is set to 0x70  (FLG_HEAP_ENABLE_TAIL_CHECK |
-    // FLG_HEAP_ENABLE_FREE_CHECK | FLG_HEAP_VALIDATE_PARAMETERS)
     if check_nt_global_flag() {
         indicators.push("NtGlobalFlag indicates debugging".to_string());
         confidence += 30;
     }
     
-    // Check #4: Debugger process names
     if let Some(dbg) = check_debugger_processes() {
         indicators.push(format!("Debugger process: {}", dbg));
         debugger_type = Some(dbg);
@@ -365,17 +341,15 @@ fn check_nt_global_flag() -> bool {
             return false;
         }
         
-        // Query heap flags (affected by debugging)
         let mut heap_info: u32 = 0;
         let result = HeapQueryInformation(
             heap,
-            HEAP_INFORMATION_CLASS(0), // HeapCompatibilityInformation
+            HEAP_INFORMATION_CLASS(0),
             &mut heap_info as *mut u32 as *mut std::ffi::c_void,
             std::mem::size_of::<u32>(),
             None
         );
         
-        // If heap validation is enabled, likely debugging
         result.is_ok() && (heap_info & 2) != 0
     }
 }
@@ -426,7 +400,6 @@ fn check_debugger_processes() -> Option<String> {
 pub fn get_environment_status() -> HashMap<String, String> {
     let mut status = HashMap::new();
     
-    // VM detection
     let vm_result = detect_vm();
     status.insert("is_vm".to_string(), vm_result.is_vm.to_string());
     status.insert("vm_type".to_string(), 
@@ -436,7 +409,6 @@ pub fn get_environment_status() -> HashMap<String, String> {
     status.insert("vm_indicators".to_string(),
                   vm_result.indicators.join(", "));
     
-    // Debugger detection
     let dbg_result = detect_debugger();
     status.insert("is_debugging".to_string(), 
                   dbg_result.is_debugging.to_string());
@@ -458,7 +430,6 @@ mod tests {
     fn test_vm_detection() {
         let result = detect_vm();
         println!("VM Detection: {:?}", result);
-        // Should work without panic
         assert!(result.confidence <= 100);
     }
     
@@ -466,7 +437,6 @@ mod tests {
     fn test_debugger_detection() {
         let result = detect_debugger();
         println!("Debugger Detection: {:?}", result);
-        // Should work without panic
         assert!(result.confidence <= 100);
     }
     

@@ -49,19 +49,15 @@ class AudioAlertSystem:
             return
         
         try:
-            # Set voice properties
             voices = self.engine.getProperty('voices')
             if voices:
-                # Try to find a clear voice
                 for voice in voices:
                     if 'david' in voice.name.lower() or 'mark' in voice.name.lower():
                         self.engine.setProperty('voice', voice.id)
                         break
             
-            # Set speech rate (words per minute)
             self.engine.setProperty('rate', 150)
             
-            # Set volume (0.0 to 1.0)
             self.engine.setProperty('volume', 0.9)
         except Exception as e:
             logger.error(f"✗ Failed to configure TTS engine: {e}")
@@ -102,14 +98,12 @@ class AudioAlertSystem:
             return
         
         if priority:
-            # Immediate speech (blocking)
             try:
                 self.engine.say(message)
                 self.engine.runAndWait()
             except Exception as e:
                 logger.error(f"✗ Immediate TTS failed: {e}")
         else:
-            # Queue for async speech
             self.alert_queue.put(message)
     
     def alert_critical_threat(self, process_name: str, risk_score: int):
@@ -224,15 +218,12 @@ class AlertManager:
         Args:
             alert: Alert object to send
         """
-        # Log the alert
         logger.warning(f"🚨 {alert.title}: {alert.message}")
         
-        # Store in history
         self.alert_history.append(alert)
         if len(self.alert_history) > self.max_history:
             self.alert_history.pop(0)
         
-        # Send desktop notification
         if self.notifications:
             if alert.priority >= AlertPriority.HIGH:
                 self.notifications.send_notification(
@@ -242,7 +233,6 @@ class AlertManager:
                     timeout=30 if alert.priority == AlertPriority.CRITICAL else 10
                 )
         
-        # Send audio alert
         if self.audio.enabled and alert.priority >= AlertPriority.HIGH:
             if alert.priority == AlertPriority.CRITICAL:
                 self.audio.speak(

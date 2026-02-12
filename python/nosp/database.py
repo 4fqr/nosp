@@ -24,7 +24,6 @@ class NOSPDatabase:
         """Initialize database connection and create tables if needed."""
         self.db_path = db_path
         
-        # Ensure directory exists
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         
         try:
@@ -41,7 +40,6 @@ class NOSPDatabase:
         try:
             cursor = self.conn.cursor()
             
-            # Main events table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +61,6 @@ class NOSPDatabase:
                 )
             """)
             
-            # Risk factors table for detailed tracking
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS risk_factors (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +72,6 @@ class NOSPDatabase:
                 )
             """)
             
-            # System status table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS system_status (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,7 +82,6 @@ class NOSPDatabase:
                 )
             """)
             
-            # Create indexes for performance
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_risk_score 
                 ON events(risk_score DESC)
@@ -124,7 +119,6 @@ class NOSPDatabase:
         try:
             cursor = self.conn.cursor()
             
-            # Check if event already exists (using process_guid as unique key)
             cursor.execute(
                 "SELECT id FROM events WHERE process_guid = ?",
                 (event.get('process_guid', ''),)
@@ -133,7 +127,6 @@ class NOSPDatabase:
             if existing:
                 return existing['id']
             
-            # Insert event
             cursor.execute("""
                 INSERT INTO events (
                     event_id, timestamp, computer, process_guid, process_id,
@@ -157,7 +150,6 @@ class NOSPDatabase:
             
             event_id = cursor.lastrowid
             
-            # Insert risk factors if provided
             if risk_factors:
                 for factor_name, value, description in risk_factors:
                     cursor.execute("""
@@ -230,23 +222,18 @@ class NOSPDatabase:
             
             stats = {}
             
-            # Total events
             cursor.execute("SELECT COUNT(*) as count FROM events")
             stats['total_events'] = cursor.fetchone()['count']
             
-            # High risk events
             cursor.execute("SELECT COUNT(*) as count FROM events WHERE risk_score >= 60")
             stats['high_risk_events'] = cursor.fetchone()['count']
             
-            # Medium risk events
             cursor.execute("SELECT COUNT(*) as count FROM events WHERE risk_score >= 30 AND risk_score < 60")
             stats['medium_risk_events'] = cursor.fetchone()['count']
             
-            # Analyzed events
             cursor.execute("SELECT COUNT(*) as count FROM events WHERE analyzed = 1")
             stats['analyzed_events'] = cursor.fetchone()['count']
             
-            # Average risk score
             cursor.execute("SELECT AVG(risk_score) as avg FROM events")
             stats['avg_risk_score'] = round(cursor.fetchone()['avg'] or 0, 2)
             
@@ -270,7 +257,6 @@ class NOSPDatabase:
             logger.error(f"✗ Failed to log status: {e}")
             return False
     
-    # ======= OMEGA ENHANCEMENTS =======
     
     def get_recent_network_events(self, limit: int = 100) -> List[Dict]:
         """Get recent network events (Sysmon Event ID 3)"""

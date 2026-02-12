@@ -51,12 +51,10 @@ class NOSPSystemTray:
     
     def _create_icon_image(self, color: str = 'green') -> Image.Image:
         """Create a colored shield icon for the tray."""
-        # Create a simple colored circle as icon
         size = 64
         image = Image.new('RGB', (size, size), color='white')
         draw = ImageDraw.Draw(image)
         
-        # Color mapping
         colors = {
             'green': (0, 255, 65),
             'yellow': (255, 200, 0),
@@ -65,10 +63,8 @@ class NOSPSystemTray:
         
         fill_color = colors.get(color, colors['green'])
         
-        # Draw shield shape (simplified as circle for now)
         draw.ellipse([8, 8, size-8, size-8], fill=fill_color, outline='black', width=2)
         
-        # Draw "N" in center
         draw.text((size//2 - 10, size//2 - 15), 'N', fill='white')
         
         return image
@@ -84,7 +80,6 @@ class NOSPSystemTray:
         if self.on_stop_monitoring:
             self.on_stop_monitoring(self.monitoring)
         
-        # Update icon
         self.update_status('safe' if self.monitoring else 'warning')
     
     def _menu_quit(self, icon, item):
@@ -123,7 +118,6 @@ class NOSPSystemTray:
             color = color_map.get(status, 'green')
             self.icon.icon = self._create_icon_image(color)
             
-            # Update title
             title_map = {
                 'safe': 'NOSP - System Secure',
                 'warning': 'NOSP - Monitoring Paused',

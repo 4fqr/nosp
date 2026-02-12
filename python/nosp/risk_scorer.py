@@ -14,7 +14,6 @@ class RiskScorer:
     Score range: 0-100 (0 = safe, 100 = critical threat)
     """
     
-    # Suspicious patterns and their base risk points
     SUSPICIOUS_PATHS = {
         r'\\temp\\': 15,
         r'\\appdata\\local\\temp\\': 20,
@@ -99,53 +98,45 @@ class RiskScorer:
         parent_cmdline = event.get('parent_command_line', '').lower()
         user = event.get('user', '').lower()
         
-        # 1. Check file path suspicion
         path_score = self._check_path_risk(image)
         if path_score > 0:
             risk_factors.append(('suspicious_path', path_score, 
                                 f'Process running from suspicious location'))
             total_score += path_score
         
-        # 2. Check file extension
         ext_score = self._check_extension_risk(image)
         if ext_score > 0:
             risk_factors.append(('suspicious_extension', ext_score,
                                 f'Suspicious file type detected'))
             total_score += ext_score
         
-        # 3. Check process name
         name_score, name_desc = self._check_name_risk(image)
         if name_score > 0:
             risk_factors.append(('suspicious_name', name_score, name_desc))
             total_score += name_score
         
-        # 4. Check command line patterns
         cmd_score, cmd_desc = self._check_cmdline_risk(cmdline)
         if cmd_score > 0:
             risk_factors.append(('suspicious_command', cmd_score, cmd_desc))
             total_score += cmd_score
         
-        # 5. Check parent process relationship
         parent_score, parent_desc = self._check_parent_risk(image, parent_image, cmdline)
         if parent_score > 0:
             risk_factors.append(('suspicious_parent', parent_score, parent_desc))
             total_score += parent_score
         
-        # 6. Check user context
         user_score = self._check_user_risk(user, image)
         if user_score > 0:
             risk_factors.append(('suspicious_user', user_score,
                                 'Process running in unusual user context'))
             total_score += user_score
         
-        # 7. Check for unsigned/missing hashes
         hash_score = self._check_hash_risk(event.get('hashes', {}))
         if hash_score > 0:
             risk_factors.append(('missing_signature', hash_score,
                                 'Process lacks proper digital signatures'))
             total_score += hash_score
         
-        # Cap score at 100
         total_score = min(total_score, 100)
         
         return total_score, risk_factors
@@ -188,21 +179,17 @@ class RiskScorer:
     
     def _check_parent_risk(self, image: str, parent_image: str, cmdline: str) -> Tuple[int, str]:
         """Check parent-child process relationship."""
-        # PowerShell spawned by Office apps
         if 'powershell' in image and any(app in parent_image for app in ['winword', 'excel', 'outlook']):
             return 35, 'PowerShell spawned by Office application'
         
-        # Scripting engines spawned by Office
         if any(script in image for script in ['wscript', 'cscript', 'mshta']) and \
            any(app in parent_image for app in ['winword', 'excel', 'outlook']):
             return 40, 'Script engine spawned by Office application'
         
-        # cmd.exe spawned by suspicious parents
         if 'cmd.exe' in image and parent_image and \
            not any(trusted in parent_image for trusted in self.TRUSTED_PARENTS):
             return 10, 'cmd.exe spawned by non-standard parent'
         
-        # Suspicious parent-child combo
         if 'powershell' in image and 'cmd.exe' in parent_image and '-enc' in cmdline:
             return 30, 'Encoded PowerShell from cmd.exe'
         
@@ -210,12 +197,10 @@ class RiskScorer:
     
     def _check_user_risk(self, user: str, image: str) -> int:
         """Check user context for anomalies."""
-        # System processes running as regular user
         system_processes = ['smss.exe', 'csrss.exe', 'wininit.exe', 'services.exe']
         if any(proc in image for proc in system_processes) and 'system' not in user:
             return 30
         
-        # SYSTEM running user-mode apps
         if 'system' in user and any(app in image for app in ['notepad', 'calc', 'mspaint']):
             return 15
         
@@ -243,12 +228,12 @@ class RiskScorer:
     def get_risk_color(self, score: int) -> str:
         """Get color code for risk level (for UI)."""
         if score >= 75:
-            return "#FF4444"  # Red
+            return "#FF4444"
         elif score >= 60:
-            return "#FF8800"  # Orange
+            return "#FF8800"
         elif score >= 30:
-            return "#FFCC00"  # Yellow
+            return "#FFCC00"
         elif score >= 10:
-            return "#88FF88"  # Light green
+            return "#88FF88"
         else:
-            return "#00FF00"  # Green
+            return "#00FF00"

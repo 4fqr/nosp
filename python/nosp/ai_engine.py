@@ -40,7 +40,6 @@ class NOSPAIEngine:
             logger.error("✗ Ollama package not available. Install with: pip install ollama")
             return
         
-        # Check and setup Ollama
         self._check_ollama_service()
         if self.ollama_running:
             self._ensure_model_available()
@@ -48,7 +47,6 @@ class NOSPAIEngine:
     def _check_ollama_service(self) -> bool:
         """Check if Ollama service is running."""
         try:
-            # Try to connect to Ollama
             ollama.list()
             self.ollama_running = True
             logger.info("✓ Ollama service is running")
@@ -66,11 +64,9 @@ class NOSPAIEngine:
         If not, automatically pull it.
         """
         try:
-            # List available models
             models = ollama.list()
             model_names = [model['name'] for model in models.get('models', [])]
             
-            # Check if our model is available
             model_found = any(self.model_name in name for name in model_names)
             
             if model_found:
@@ -78,12 +74,10 @@ class NOSPAIEngine:
                 self.model_ready = True
                 return True
             
-            # Model not found - pull it automatically
             logger.info(f"⟳ Model '{self.model_name}' not found. Pulling from Ollama...")
             logger.info("  This may take a few minutes depending on your connection...")
             
             try:
-                # Pull the model
                 ollama.pull(self.model_name)
                 logger.info(f"✓ Model '{self.model_name}' pulled successfully")
                 self.model_ready = True
@@ -111,10 +105,8 @@ class NOSPAIEngine:
             return "⚠ AI analysis unavailable: Model not ready"
         
         try:
-            # Build analysis prompt
             prompt = self._build_analysis_prompt(event)
             
-            # Query the model
             response = ollama.chat(
                 model=self.model_name,
                 messages=[{
@@ -128,7 +120,6 @@ class NOSPAIEngine:
             
             analysis = response['message']['content']
             
-            # Parse MITRE ATT&CK information
             mitre_info = self._parse_mitre_attack(analysis)
             
             logger.info(f"✓ AI analysis completed for process: {event.get('image', 'unknown')}")
@@ -156,17 +147,14 @@ class NOSPAIEngine:
             'threat_level': None
         }
         
-        # Extract MITRE Tactic
         tactic_match = re.search(r'MITRE_TACTIC:\s*([^\n]+)', analysis_text, re.IGNORECASE)
         if tactic_match:
             result['tactic'] = tactic_match.group(1).strip()
         
-        # Extract MITRE Technique (with ID)
         technique_match = re.search(r'MITRE_TECHNIQUE:\s*([^\n]+)', analysis_text, re.IGNORECASE)
         if technique_match:
             result['technique'] = technique_match.group(1).strip()
         
-        # Extract Threat Level
         threat_match = re.search(r'THREAT_LEVEL:\s*([^\n]+)', analysis_text, re.IGNORECASE)
         if threat_match:
             result['threat_level'] = threat_match.group(1).strip()
@@ -225,7 +213,7 @@ Be specific about MITRE ATT&CK techniques. Use exact technique IDs."""
                 analysis = self.analyze_process(event)
                 if analysis:
                     results[event_id] = analysis
-                time.sleep(0.5)  # Rate limiting
+                time.sleep(0.5)
         
         return results
     

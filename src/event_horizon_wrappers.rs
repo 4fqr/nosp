@@ -1,9 +1,3 @@
-//! EVENT HORIZON PyO3 Wrappers
-//! 
-//! Python bindings for God Mode capabilities:
-//! - Self-Defense (Critical Process Flag, Debugger Detection)
-//! - VM Detection (Registry, Process, MAC, BIOS)
-//! - Clipboard Monitoring (Crypto Hijacking Detection)
 
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -13,14 +7,7 @@ use crate::self_defense;
 use crate::vm_detection;
 use crate::clipboard_monitor;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SELF-DEFENSE WRAPPERS
-// ═══════════════════════════════════════════════════════════════════════════
 
-/// Enable critical process flag (BSOD on termination)
-/// 
-/// WARNING: This makes the NOSP process critical to Windows.
-/// Terminating it will trigger a BSOD. Use disable_critical_process_py() for cleanup.
 #[pyfunction]
 pub fn enable_critical_process_py() -> PyResult<bool> {
     match self_defense::enable_critical_process() {
@@ -31,7 +18,6 @@ pub fn enable_critical_process_py() -> PyResult<bool> {
     }
 }
 
-/// Disable critical process flag (restore normal termination)
 #[pyfunction]
 pub fn disable_critical_process_py() -> PyResult<bool> {
     match self_defense::disable_critical_process() {
@@ -42,15 +28,11 @@ pub fn disable_critical_process_py() -> PyResult<bool> {
     }
 }
 
-/// Check if a debugger is attached to the current process
 #[pyfunction]
 pub fn is_debugger_present_py() -> PyResult<bool> {
     Ok(self_defense::is_debugger_present())
 }
 
-/// Detect attempts to open a handle to NOSP process
-/// 
-/// Returns: List of PIDs that have handles to NOSP
 #[pyfunction]
 pub fn detect_handle_attempts_py() -> PyResult<Vec<u32>> {
     match self_defense::detect_handle_attempts() {
@@ -61,9 +43,6 @@ pub fn detect_handle_attempts_py() -> PyResult<Vec<u32>> {
     }
 }
 
-/// Get comprehensive defense status
-/// 
-/// Returns: Dictionary with defense states
 #[pyfunction]
 pub fn get_defense_status_py(py: Python) -> PyResult<PyObject> {
     let status = self_defense::get_defense_status();
@@ -76,17 +55,7 @@ pub fn get_defense_status_py(py: Python) -> PyResult<PyObject> {
     Ok(dict.into())
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// VM DETECTION WRAPPERS
-// ═══════════════════════════════════════════════════════════════════════════
 
-/// Detect if running in a virtual machine
-/// 
-/// Returns: Dictionary with VM detection results
-/// - is_vm: bool
-/// - vm_type: str (VMware, VirtualBox, Hyper-V, QEMU, Parallels, Unknown)
-/// - confidence: int (0-100)
-/// - indicators: list of strings
 #[pyfunction]
 pub fn detect_vm_py(py: Python) -> PyResult<PyObject> {
     let detection = vm_detection::detect_vm();
@@ -100,13 +69,6 @@ pub fn detect_vm_py(py: Python) -> PyResult<PyObject> {
     Ok(dict.into())
 }
 
-/// Detect if a debugger is attached or debugging tools are present
-/// 
-/// Returns: Dictionary with debugger detection results
-/// - is_debugging: bool
-/// - debugger_type: str (WinDbg, x64dbg, OllyDbg, IDA Pro, Visual Studio, GDB, Unknown)
-/// - confidence: int (0-100)
-/// - indicators: list of strings
 #[pyfunction]
 pub fn detect_debugger_py(py: Python) -> PyResult<PyObject> {
     let detection = vm_detection::detect_debugger();
@@ -120,9 +82,6 @@ pub fn detect_debugger_py(py: Python) -> PyResult<PyObject> {
     Ok(dict.into())
 }
 
-/// Get comprehensive environment status (VM + Debugger)
-/// 
-/// Returns: Dictionary with full environment analysis
 #[pyfunction]
 pub fn get_environment_status_py(py: Python) -> PyResult<PyObject> {
     let vm_detection = vm_detection::detect_vm();
@@ -130,7 +89,6 @@ pub fn get_environment_status_py(py: Python) -> PyResult<PyObject> {
     
     let dict = PyDict::new(py);
     
-    // VM Detection
     let vm_dict = PyDict::new(py);
     vm_dict.set_item("is_vm", vm_detection.is_vm)?;
     vm_dict.set_item("vm_type", vm_detection.vm_type)?;
@@ -138,7 +96,6 @@ pub fn get_environment_status_py(py: Python) -> PyResult<PyObject> {
     vm_dict.set_item("indicators", vm_detection.indicators)?;
     dict.set_item("vm", vm_dict)?;
     
-    // Debugger Detection
     let debugger_dict = PyDict::new(py);
     debugger_dict.set_item("is_debugging", debugger_detection.is_debugging)?;
     debugger_dict.set_item("debugger_type", debugger_detection.debugger_type)?;
@@ -146,20 +103,13 @@ pub fn get_environment_status_py(py: Python) -> PyResult<PyObject> {
     debugger_dict.set_item("indicators", debugger_detection.indicators)?;
     dict.set_item("debugger", debugger_dict)?;
     
-    // Overall suspicious flag
     let is_suspicious = vm_detection.is_vm || debugger_detection.is_debugging;
     dict.set_item("is_suspicious", is_suspicious)?;
     
     Ok(dict.into())
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CLIPBOARD MONITORING WRAPPERS
-// ═══════════════════════════════════════════════════════════════════════════
 
-/// Start clipboard monitoring in background thread
-/// 
-/// Returns: True if monitoring started successfully
 #[pyfunction]
 pub fn start_clipboard_monitor_py() -> PyResult<bool> {
     match clipboard_monitor::start_monitoring() {
@@ -170,23 +120,12 @@ pub fn start_clipboard_monitor_py() -> PyResult<bool> {
     }
 }
 
-/// Stop clipboard monitoring
 #[pyfunction]
 pub fn stop_clipboard_monitor_py() -> PyResult<bool> {
     clipboard_monitor::stop_monitoring();
     Ok(true)
 }
 
-/// Get clipboard event history
-/// 
-/// Returns: List of dictionaries with clipboard events
-/// Each event contains:
-/// - timestamp: str
-/// - content_type: str (Bitcoin, Ethereum, Monero, CreditCard, etc.)
-/// - content: str (masked for sensitive data)
-/// - is_sensitive: bool
-/// - is_suspicious: bool
-/// - warning_message: Optional[str]
 #[pyfunction]
 pub fn get_clipboard_history_py(py: Python) -> PyResult<Vec<PyObject>> {
     let history = clipboard_monitor::get_history();
@@ -198,7 +137,6 @@ pub fn get_clipboard_history_py(py: Python) -> PyResult<Vec<PyObject>> {
         dict.set_item("timestamp", event.timestamp.to_rfc3339())?;
         dict.set_item("content_type", format!("{:?}", event.content_type))?;
         
-        // Mask sensitive content (show first 6 and last 4 chars)
         let masked_content = if event.is_sensitive && event.content.len() > 10 {
             format!("{}...{}", 
                 &event.content[..6.min(event.content.len())],
@@ -222,9 +160,6 @@ pub fn get_clipboard_history_py(py: Python) -> PyResult<Vec<PyObject>> {
     Ok(py_events)
 }
 
-/// Get only suspicious clipboard events (potential hijacking attempts)
-/// 
-/// Returns: List of suspicious events
 #[pyfunction]
 pub fn get_latest_suspicious_py(py: Python) -> PyResult<Vec<PyObject>> {
     let suspicious_events = clipboard_monitor::get_latest_suspicious();
@@ -236,7 +171,6 @@ pub fn get_latest_suspicious_py(py: Python) -> PyResult<Vec<PyObject>> {
         dict.set_item("timestamp", event.timestamp.to_rfc3339())?;
         dict.set_item("content_type", format!("{:?}", event.content_type))?;
         
-        // For suspicious events, show more context
         let masked_content = if event.content.len() > 20 {
             format!("{}...{}", 
                 &event.content[..10.min(event.content.len())],
@@ -260,32 +194,23 @@ pub fn get_latest_suspicious_py(py: Python) -> PyResult<Vec<PyObject>> {
     Ok(py_events)
 }
 
-/// Add address to clipboard monitor whitelist
-/// 
-/// Args:
-///     address: Address to whitelist (BTC, ETH, etc.)
-/// 
-/// Returns: True if added successfully
 #[pyfunction]
 pub fn add_to_whitelist_py(address: String) -> PyResult<bool> {
     clipboard_monitor::add_to_whitelist(address);
     Ok(true)
 }
 
-/// Remove address from clipboard monitor whitelist
 #[pyfunction]
 pub fn remove_from_whitelist_py(address: String) -> PyResult<bool> {
     clipboard_monitor::remove_from_whitelist(&address);
     Ok(true)
 }
 
-/// Get all whitelisted addresses
 #[pyfunction]
 pub fn get_whitelist_py() -> PyResult<Vec<String>> {
     Ok(clipboard_monitor::get_whitelist())
 }
 
-/// Check if clipboard monitor is currently running
 #[pyfunction]
 pub fn is_monitoring_py() -> PyResult<bool> {
     Ok(clipboard_monitor::is_monitoring())

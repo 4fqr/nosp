@@ -33,17 +33,14 @@ class MLAnomalyDetector:
         self.model_path = Path(model_path)
         self.model_path.parent.mkdir(parents=True, exist_ok=True)
         
-        # ML components
         self.model: Optional[IsolationForest] = None
         self.scaler = StandardScaler()
         self.label_encoders: Dict[str, LabelEncoder] = {}
         
-        # Training data buffer
         self.training_buffer: List[Dict[str, Any]] = []
         self.buffer_size = 1000
         self.min_training_samples = 100
         
-        # Feature configuration
         self.numerical_features = [
             'risk_score',
             'cmdline_length',
@@ -59,7 +56,6 @@ class MLAnomalyDetector:
             'user'
         ]
         
-        # Statistics
         self.stats = {
             'predictions': 0,
             'anomalies_detected': 0,
@@ -68,10 +64,8 @@ class MLAnomalyDetector:
             'last_trained': None
         }
         
-        # Try to load existing model
         self.load_model()
         
-        # If no model exists, create one
         if self.model is None:
             self._init_model()
     
@@ -79,10 +73,10 @@ class MLAnomalyDetector:
         """Initialize a new Isolation Forest model"""
         self.model = IsolationForest(
             n_estimators=100,
-            contamination=0.1,  # Expect 10% anomalies
+            contamination=0.1,
             max_samples='auto',
             random_state=42,
-            n_jobs=-1  # Use all CPU cores
+            n_jobs=-1
         )
         logger.info("Initialized new Isolation Forest model")
     
@@ -96,13 +90,11 @@ class MLAnomalyDetector:
         """
         features = {}
         
-        # Numerical features
         features['risk_score'] = float(event.get('risk_score', 0))
         features['cmdline_length'] = len(event.get('cmdline', ''))
         features['parent_pid'] = int(event.get('parent_pid', 0))
         features['pid'] = int(event.get('pid', 0))
         
-        # Time-based features
         try:
             timestamp = datetime.fromisoformat(event.get('timestamp', datetime.now().isoformat()))
             features['hour_of_day'] = timestamp.hour
@@ -111,7 +103,6 @@ class MLAnomalyDetector:
             features['hour_of_day'] = 0
             features['day_of_week'] = 0
         
-        # Categorical features
         features['process_name'] = event.get('process_name', 'unknown').lower()
         features['parent_name'] = event.get('parent_name', 'unknown').lower()
         features['user'] = event.get('user', 'unknown').lower()
@@ -131,40 +122,32 @@ class MLAnomalyDetector:
         """
         feature_vector = []
         
-        # Add numerical features
         for feat in self.numerical_features:
             feature_vector.append(float(features_dict.get(feat, 0)))
         
-        # Encode categorical features
         for feat in self.categorical_features:
             value = str(features_dict.get(feat, 'unknown'))
             
             if fit:
-                # Create encoder if doesn't exist
                 if feat not in self.label_encoders:
                     self.label_encoders[feat] = LabelEncoder()
                 
-                # Fit encoder (handle unknown values)
                 try:
                     if value not in self.label_encoders[feat].classes_:
-                        # Add new class
                         classes = list(self.label_encoders[feat].classes_)
                         classes.append(value)
                         self.label_encoders[feat].classes_ = np.array(classes)
                 except:
-                    # First fit
                     self.label_encoders[feat].fit([value])
                 
                 encoded = self.label_encoders[feat].transform([value])[0]
             else:
-                # Transform only
                 if feat not in self.label_encoders:
-                    encoded = 0  # Unknown encoder
+                    encoded = 0
                 else:
                     try:
                         encoded = self.label_encoders[feat].transform([value])[0]
                     except:
-                        # Unknown category
                         encoded = 0
             
             feature_vector.append(float(encoded))
@@ -176,7 +159,6 @@ class MLAnomalyDetector:
         features = self.extract_features(event)
         self.training_buffer.append(features)
         
-        # Keep buffer size limited
         if len(self.training_buffer) > self.buffer_size:
             self.training_buffer.pop(0)
     
@@ -197,7 +179,6 @@ class MLAnomalyDetector:
         try:
             logger.info(f"Training model on {len(self.training_buffer)} samples...")
             
-            # Encode all features
             X = []
             for features in self.training_buffer:
                 encoded = self._encode_features(features, fit=True)
@@ -205,17 +186,13 @@ class MLAnomalyDetector:
             
             X = np.array(X)
             
-            # Scale features
             X_scaled = self.scaler.fit_transform(X)
             
-            # Train model
             self.model.fit(X_scaled)
             
-            # Update stats
             self.stats['training_samples'] = len(self.training_buffer)
             self.stats['last_trained'] = datetime.now().isoformat()
             
-            # Save model
             self.save_model()
             
             logger.info(f"✓ Model trained successfully with {len(self.training_buffer)} samples")
@@ -239,18 +216,14 @@ class MLAnomalyDetector:
             return False, 0.0, "no_model"
         
         try:
-            # Extract and encode features
             features = self.extract_features(event)
             X = self._encode_features(features, fit=False)
             
-            # Scale
             X_scaled = self.scaler.transform(X)
             
-            # Predict
             prediction = self.model.predict(X_scaled)[0]
             anomaly_score = self.model.score_samples(X_scaled)[0]
             
-            # Update stats
             self.stats['predictions'] += 1
             
             is_anomaly = (prediction == -1)
@@ -260,8 +233,6 @@ class MLAnomalyDetector:
             else:
                 self.stats['normal_detected'] += 1
             
-            # Determine confidence level
-            # Anomaly scores typically range from -0.5 to 0.5
             abs_score = abs(anomaly_score)
             if abs_score > 0.3:
                 confidence = "high"
@@ -325,7 +296,6 @@ class MLAnomalyDetector:
         if self.model is None:
             return {}
         
-        # Placeholder - would need more sophisticated analysis
         all_features = self.numerical_features + self.categorical_features
         return {feat: 1.0 / len(all_features) for feat in all_features}
     
@@ -335,7 +305,6 @@ class MLAnomalyDetector:
         stats['buffer_size'] = len(self.training_buffer)
         stats['model_loaded'] = self.model is not None
         
-        # Calculate anomaly rate
         total = stats['predictions']
         if total > 0:
             stats['anomaly_rate'] = stats['anomalies_detected'] / total

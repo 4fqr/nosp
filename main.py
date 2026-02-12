@@ -8,18 +8,27 @@ import pandas as pd
 import time
 import sys
 import logging
+import platform
 from pathlib import Path
 from datetime import datetime
 import json
 
-# Setup logging
+IS_WINDOWS = platform.system() == 'Windows'
+IS_LINUX = platform.system() == 'Linux'
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Import NOSP modules
+if IS_LINUX:
+    logger.info("✓ Running on Linux - using compatibility layer")
+elif IS_WINDOWS:
+    logger.info("✓ Running on Windows - full features available")
+else:
+    logger.warning(f"⚠ Running on unsupported platform: {platform.system()}")
+
 try:
     from nosp.database import NOSPDatabase
     from nosp.ai_engine import NOSPAIEngine
@@ -27,15 +36,12 @@ try:
     from nosp.alerts import AudioAlertSystem, AlertManager, Alert, AlertPriority
     from nosp.forensics import ProcessTree, ForensicReporter
     from nosp.system_tray import NOSPSystemTray
-    # OMEGA Features
     from nosp.rules_engine import RulesEngine
     from nosp.ml_detector import MLAnomalyDetector
     from nosp.plugin_manager import PluginManager
-    # APEX Features
     from nosp.system_hardener import SystemHardener
     from nosp.session_manager import SessionManager
     from nosp.terminal import TerminalSession
-    # EVENT HORIZON Features
     from nosp.ledger import get_ledger, log_security_event
     from nosp.mesh_network import MeshNetwork
     from nosp.cage import Cage
@@ -44,7 +50,6 @@ except ImportError as e:
     st.error("⚠ NOSP modules not found. Please ensure the package is properly installed.")
     sys.exit(1)
 
-# Import visualization libraries
 try:
     import plotly.express as px
     import plotly.graph_objects as go
@@ -54,7 +59,6 @@ except ImportError:
     PYDECK_AVAILABLE = False
     logger.warning("⚠ pydeck not available - 3D threat map disabled")
 
-# Try to import Rust core module
 RUST_AVAILABLE = False
 try:
     import nosp_core
@@ -69,9 +73,6 @@ except ImportError as e:
     logger.warning("  3. Build the Rust module: maturin develop --release")
 
 
-# ============================================================================
-# STREAMLIT CONFIGURATION
-# ============================================================================
 
 st.set_page_config(
     page_title="NOSP - Null OS Security Program",
@@ -80,26 +81,25 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Glassmorphism Cyberpunk Cinema CSS (OMEGA)
 CYBERPUNK_CSS = """
 <style>
     /* Main theme colors - OMEGA Enhanced */
     :root {
-        --bg-dark: #0A0E1A;
-        --bg-secondary: #0F1419;
+        --bg-dark:
+        --bg-secondary:
         --bg-glass: rgba(15, 20, 25, 0.6);
-        --neon-green: #00FF41;
-        --neon-blue: #00D9FF;
-        --neon-purple: #BD00FF;
-        --neon-red: #FF0055;
-        --text-primary: #E8F0FF;
-        --text-secondary: #A8B8D0;
+        --neon-green:
+        --neon-blue:
+        --neon-purple:
+        --neon-red:
+        --text-primary:
+        --text-secondary:
         --border-glow: rgba(0, 255, 65, 0.3);
     }
     
     /* Glassmorphism background */
     .stApp {
-        background: linear-gradient(135deg, #0A0E1A 0%, #1A0E2E 100%);
+        background: linear-gradient(135deg,
         color: var(--text-primary);
         font-family: 'Courier New', 'Roboto Mono', monospace;
     }
@@ -257,9 +257,6 @@ CYBERPUNK_CSS = """
 st.markdown(CYBERPUNK_CSS, unsafe_allow_html=True)
 
 
-# ============================================================================
-# INITIALIZE SESSION STATE
-# ============================================================================
 
 if 'initialized' not in st.session_state:
     st.session_state.initialized = False
@@ -273,13 +270,11 @@ if 'initialized' not in st.session_state:
     st.session_state.process_tree = None
     st.session_state.forensic_reporter = None
     st.session_state.system_tray = None
-    # OMEGA Features
     st.session_state.rules_engine = None
     st.session_state.ml_detector = None
     st.session_state.plugin_manager = None
     st.session_state.timeline_timestamp = None
     st.session_state.network_events = []
-    # APEX Features
     st.session_state.system_hardener = None
     st.session_state.session_manager = None
     st.session_state.terminal = None
@@ -290,32 +285,25 @@ if 'initialized' not in st.session_state:
 def initialize_components():
     """Initialize all NOSP components."""
     try:
-        # Initialize database
         st.session_state.db = NOSPDatabase()
         logger.info("✓ Database initialized")
         
-        # Initialize AI engine
         st.session_state.ai_engine = NOSPAIEngine(model_name="llama3")
         logger.info("✓ AI engine initialized")
         
-        # Initialize risk scorer
         st.session_state.risk_scorer = RiskScorer()
         logger.info("✓ Risk scorer initialized")
         
-        # Initialize audio alert system
         st.session_state.alert_system = AudioAlertSystem()
         st.session_state.alert_manager = AlertManager(st.session_state.alert_system)
         logger.info("✓ Alert system initialized")
         
-        # Initialize process tree
         st.session_state.process_tree = ProcessTree()
         logger.info("✓ Process tree initialized")
         
-        # Initialize forensic reporter
         st.session_state.forensic_reporter = ForensicReporter()
         logger.info("✓ Forensic reporter initialized")
         
-        # Initialize system tray (non-blocking)
         try:
             st.session_state.system_tray = NOSPSystemTray()
             st.session_state.system_tray.start()
@@ -324,12 +312,9 @@ def initialize_components():
             logger.warning(f"⚠ System tray unavailable: {e}")
             st.session_state.system_tray = None
         
-        # ======= OMEGA FEATURES =======
         
-        # Initialize YAML Rules Engine
         try:
             st.session_state.rules_engine = RulesEngine(rules_file="rules.yaml")
-            # Register action handlers
             st.session_state.rules_engine.register_action_handler('kill', handle_kill_action)
             st.session_state.rules_engine.register_action_handler('suspend', handle_suspend_action)
             st.session_state.rules_engine.register_action_handler('quarantine', handle_quarantine_action)
@@ -340,7 +325,6 @@ def initialize_components():
             logger.warning(f"⚠ Rules engine unavailable: {e}")
             st.session_state.rules_engine = None
         
-        # Initialize ML Anomaly Detector
         try:
             st.session_state.ml_detector = MLAnomalyDetector(model_path="models/anomaly_detector.pkl")
             logger.info("✓ ML anomaly detector initialized")
@@ -348,7 +332,6 @@ def initialize_components():
             logger.warning(f"⚠ ML detector unavailable: {e}")
             st.session_state.ml_detector = None
         
-        # Initialize Plugin Manager
         try:
             st.session_state.plugin_manager = PluginManager(plugins_dir="plugins")
             logger.info("✓ Plugin manager initialized")
@@ -356,9 +339,7 @@ def initialize_components():
             logger.warning(f"⚠ Plugin manager unavailable: {e}")
             st.session_state.plugin_manager = None
         
-        # ======= APEX FEATURES =======
         
-        # Initialize System Hardener
         try:
             st.session_state.system_hardener = SystemHardener()
             logger.info("✓ System hardener initialized")
@@ -366,7 +347,6 @@ def initialize_components():
             logger.warning(f"⚠ System hardener unavailable: {e}")
             st.session_state.system_hardener = None
         
-        # Initialize Session Manager (with auto-save)
         try:
             st.session_state.session_manager = SessionManager()
             logger.info("✓ Session manager initialized")
@@ -374,7 +354,6 @@ def initialize_components():
             logger.warning(f"⚠ Session manager unavailable: {e}")
             st.session_state.session_manager = None
         
-        # Initialize Terminal Session
         try:
             st.session_state.terminal = TerminalSession()
             logger.info("✓ Terminal session initialized")
@@ -384,7 +363,6 @@ def initialize_components():
         
         st.session_state.initialized = True
         
-        # Welcome audio
         if st.session_state.alert_system.enabled:
             st.session_state.alert_system.alert_monitoring_started()
         
@@ -396,9 +374,6 @@ def initialize_components():
         return False
 
 
-# ============================================================================
-# RULES ENGINE ACTION HANDLERS (OMEGA)
-# ============================================================================
 
 def handle_kill_action(event: dict, match: dict) -> bool:
     """Handle kill action from rules engine"""
@@ -472,20 +447,15 @@ def handle_block_ip_action(event: dict, match: dict) -> bool:
         return False
 
 
-# ============================================================================
-# SIDEBAR - SYSTEM STATUS
-# ============================================================================
 
 def render_sidebar():
     """Render the sidebar with system status."""
     st.sidebar.title("🛡️ NOSP")
-    st.sidebar.markdown("### Null OS Security Program")
+    st.sidebar.markdown("Neural Operating System Protector")
     st.sidebar.markdown("---")
     
-    # System Status
-    st.sidebar.markdown("### 📊 System Status")
+    st.sidebar.markdown("**System Status**")
     
-    # Rust Engine Status
     if RUST_AVAILABLE:
         st.sidebar.markdown("🟢 **Rust Engine:** <span class='status-active'>ACTIVE</span>", 
                           unsafe_allow_html=True)
@@ -499,7 +469,6 @@ def render_sidebar():
                           unsafe_allow_html=True)
         st.sidebar.caption("Limited functionality mode")
     
-    # AI Status
     if st.session_state.ai_engine:
         ai_status = st.session_state.ai_engine.get_status()
         if ai_status.get('model_ready'):
@@ -513,7 +482,6 @@ def render_sidebar():
         st.sidebar.markdown("🔴 **AI Engine:** <span class='status-inactive'>OFFLINE</span>", 
                           unsafe_allow_html=True)
     
-    # Database Status
     if st.session_state.db:
         st.sidebar.markdown("🟢 **Database:** <span class='status-active'>CONNECTED</span>", 
                           unsafe_allow_html=True)
@@ -523,16 +491,14 @@ def render_sidebar():
     
     st.sidebar.markdown("---")
     
-    # Statistics
     if st.session_state.db:
-        st.sidebar.markdown("### 📈 Statistics")
+        st.sidebar.markdown("")
         stats = st.session_state.db.get_statistics()
         st.sidebar.metric("Total Events", stats.get('total_events', 0))
         st.sidebar.metric("High Risk", stats.get('high_risk_events', 0))
         st.sidebar.metric("Avg Risk Score", stats.get('avg_risk_score', 0))
     
-    # Performance Monitoring
-    st.sidebar.markdown("### ⚡ Performance")
+    st.sidebar.markdown("")
     try:
         import psutil
         cpu_percent = psutil.cpu_percent(interval=0.1)
@@ -546,8 +512,7 @@ def render_sidebar():
     
     st.sidebar.markdown("---")
     
-    # Controls
-    st.sidebar.markdown("### ⚙️ Controls")
+    st.sidebar.markdown("")
     
     if st.sidebar.button("🔄 Refresh Data"):
         st.rerun()
@@ -556,14 +521,12 @@ def render_sidebar():
         if st.sidebar.button("▶️ Start Monitoring" if not st.session_state.monitoring else "⏸️ Pause Monitoring"):
             st.session_state.monitoring = not st.session_state.monitoring
             
-            # Update system tray
             if st.session_state.system_tray:
                 if st.session_state.monitoring:
                     st.session_state.system_tray.update_status("safe", 0)
                 else:
                     st.session_state.system_tray.update_status("gray", 0)
             
-            # Audio feedback
             if st.session_state.alert_system and st.session_state.alert_system.enabled:
                 if st.session_state.monitoring:
                     st.session_state.alert_system.alert_monitoring_started()
@@ -572,9 +535,8 @@ def render_sidebar():
             
             st.rerun()
     
-    # PDF Report Generation
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📄 Reports")
+    st.sidebar.markdown("")
     
     if st.sidebar.button("📊 Generate PDF Report"):
         with st.spinner("Generating report..."):
@@ -603,9 +565,6 @@ def render_sidebar():
                 logger.error(f"✗ Report error: {e}")
 
 
-# ============================================================================
-# MAIN CONTENT
-# ============================================================================
 
 def render_header():
     """Render the main header."""
@@ -613,7 +572,7 @@ def render_header():
         <h1 style='text-align: center; font-size: 3em; margin-bottom: 0;'>
             🛡️ NOSP
         </h1>
-        <p style='text-align: center; color: #00FF41; font-family: Courier New; margin-top: 0;'>
+        <p style='text-align: center; color:
             NULL OS SECURITY PROGRAM • REAL-TIME THREAT MONITORING
         </p>
     """, unsafe_allow_html=True)
@@ -626,65 +585,51 @@ def process_events():
         return
     
     try:
-        # Fetch events from Rust module
         events = nosp_core.get_sysmon_events(max_events=50)
         
         threat_count = 0
         max_risk = 0
         
         for event in events:
-            # ======= OMEGA: Plugin Processing =======
             if st.session_state.plugin_manager:
                 event = st.session_state.plugin_manager.process_event(event)
                 if event is None:
-                    continue  # Event filtered by plugin
+                    continue
             
-            # Calculate risk score
             risk_score, risk_factors = st.session_state.risk_scorer.calculate_risk(event)
             event['risk_score'] = risk_score
             
-            # ======= OMEGA: ML Anomaly Detection =======
             if st.session_state.ml_detector:
-                # Add to training buffer
                 st.session_state.ml_detector.add_training_sample(event)
                 
-                # Predict anomaly
                 is_anomaly, anomaly_score, confidence = st.session_state.ml_detector.predict(event)
                 event['ml_anomaly'] = is_anomaly
                 event['ml_score'] = anomaly_score
                 event['ml_confidence'] = confidence
                 
-                # Boost risk score if ML detects anomaly
                 if is_anomaly and confidence in ['high', 'medium']:
                     risk_score = min(100, risk_score + 20)
                     event['risk_score'] = risk_score
                 
-                # Auto-train every 100 events
                 if st.session_state.events_processed % 100 == 0:
                     st.session_state.ml_detector.train(force=False)
             
-            # Track threats
             if risk_score >= 60:
                 threat_count += 1
             max_risk = max(max_risk, risk_score)
             
-            # Add to process tree
             if st.session_state.process_tree:
                 st.session_state.process_tree.add_process(event)
             
-            # Store in database
             event_id = st.session_state.db.insert_event(event, risk_score, risk_factors)
             
-            # ======= OMEGA: Rules Engine Processing =======
             if st.session_state.rules_engine:
                 rule_result = st.session_state.rules_engine.process_event(event)
                 
                 if rule_result['matches']:
-                    # Log rule matches
                     for match in rule_result['matches']:
                         logger.info(f"Rule matched: {match['rule_name']} (severity: {match['severity']})")
                     
-                    # Trigger audio alerts for critical rules
                     critical_matches = [m for m in rule_result['matches'] if m['severity'] == 'critical']
                     if critical_matches and st.session_state.alert_system:
                         rule_names = ", ".join([m['rule_name'] for m in critical_matches])
@@ -693,34 +638,27 @@ def process_events():
                             f"Critical rules triggered: {rule_names}"
                         )
             
-            # If high risk, queue for AI analysis and send alerts
             if event_id and risk_score >= 60:
-                # AI Analysis
                 analysis_result = st.session_state.ai_engine.analyze_process(event)
                 if analysis_result:
                     if isinstance(analysis_result, dict):
-                        # Store analysis text
                         analysis_text = analysis_result.get('analysis', '')
                         st.session_state.db.update_ai_analysis(event_id, analysis_text)
                     else:
                         st.session_state.db.update_ai_analysis(event_id, str(analysis_result))
                 
-                # Send alert
                 process_name = Path(event.get('image', 'unknown')).name
                 
                 if risk_score >= 90:
-                    # Critical threat - audio alert
                     if st.session_state.alert_system and st.session_state.alert_system.enabled:
                         st.session_state.alert_system.alert_critical_threat(process_name, risk_score)
                 
                 elif risk_score >= 75:
-                    # High risk - audio alert
                     if st.session_state.alert_system and st.session_state.alert_system.enabled:
                         st.session_state.alert_system.alert_high_risk(process_name, risk_score)
             
             st.session_state.events_processed += 1
         
-        # Update system tray
         if st.session_state.system_tray:
             if max_risk >= 90:
                 st.session_state.system_tray.update_status("critical", threat_count)
@@ -735,9 +673,8 @@ def process_events():
 
 def render_events_table():
     """Render the main events table."""
-    st.markdown("### 📋 Recent Security Events")
+    st.markdown("")
     
-    # Filters
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         min_risk = st.slider("Minimum Risk Score", 0, 100, 0, 5)
@@ -748,17 +685,14 @@ def render_events_table():
     with col3:
         auto_refresh = st.checkbox("Auto Refresh", value=False)
     
-    # Get events from database
     events = st.session_state.db.get_recent_events(limit=max_events, min_risk=min_risk)
     
     if not events:
         st.info("📭 No events found. Start monitoring to capture security events.")
         return
     
-    # Convert to DataFrame
     df = pd.DataFrame(events)
     
-    # Select and rename columns for display
     display_columns = {
         'id': 'ID',
         'timestamp': 'Time',
@@ -771,15 +705,14 @@ def render_events_table():
     if all(col in df.columns for col in display_columns.keys()):
         df_display = df[list(display_columns.keys())].rename(columns=display_columns)
         
-        # Color code risk scores
         def highlight_risk(row):
             risk = row['Risk']
             if risk >= 75:
-                color = '#FF4444'
+                color = '#FF0055'
             elif risk >= 60:
-                color = '#FF8800'
+                color = '#FF7700'
             elif risk >= 30:
-                color = '#FFCC00'
+                color = '#FFAA00'
             else:
                 color = '#00FF41'
             return [f'background-color: {color}55' if col == 'Risk' else '' 
@@ -790,7 +723,6 @@ def render_events_table():
     else:
         st.dataframe(df, use_container_width=True, height=400)
     
-    # Auto-refresh
     if auto_refresh:
         time.sleep(5)
         st.rerun()
@@ -798,9 +730,8 @@ def render_events_table():
 
 def render_analysis_panel():
     """Render AI analysis for high-risk events."""
-    st.markdown("### 🔍 AI Threat Analysis")
+    st.markdown("")
     
-    # Get high-risk unanalyzed events
     high_risk_events = st.session_state.db.get_high_risk_unanalyzed(threshold=60, limit=5)
     
     if high_risk_events:
@@ -815,12 +746,11 @@ def render_analysis_panel():
                 st.success("✓ Analysis complete!")
                 st.rerun()
     
-    # Show analyzed high-risk events
     analyzed_events = st.session_state.db.get_recent_events(limit=10, min_risk=60)
     analyzed_events = [e for e in analyzed_events if e.get('analyzed') == 1]
     
     if analyzed_events:
-        for event in analyzed_events[:3]:  # Show top 3
+        for event in analyzed_events[:3]:
             risk_level = st.session_state.risk_scorer.get_risk_level(event['risk_score'])
             risk_color = st.session_state.risk_scorer.get_risk_color(event['risk_score'])
             
@@ -844,16 +774,12 @@ def render_analysis_panel():
         st.info("✓ No high-risk threats detected")
 
 
-# ============================================================================
-# OMEGA FEATURE RENDERERS
-# ============================================================================
 
 def render_3d_threat_map():
     """Render 3D globe with network threat visualization (OMEGA)."""
-    st.markdown("### 🌍 3D Global Threat Map")
+    st.markdown("")
     st.markdown("Real-time visualization of network connections on a 3D globe")
     
-    # Get network events
     network_events = st.session_state.db.get_recent_network_events(limit=100)
     
     if not network_events:
@@ -861,16 +787,13 @@ def render_3d_threat_map():
         return
     
     try:
-        # Prepare data for pydeck
         arc_data = []
         
-        # User location (customize this)
-        user_lat, user_lon = 37.7749, -122.4194  # San Francisco (example)
+        user_lat, user_lon = 37.7749, -122.4194
         
         for event in network_events:
             dest_ip = event.get('destination_ip', '')
             
-            # Use a simple IP-to-location mapping (in production, use GeoIP database)
             dest_lat, dest_lon = ip_to_coordinates(dest_ip)
             
             if dest_lat and dest_lon:
@@ -888,7 +811,6 @@ def render_3d_threat_map():
             st.warning("⚠ No geolocation data available for network events")
             return
         
-        # Create pydeck chart
         view_state =pdk.ViewState(
             latitude=30,
             longitude=0,
@@ -896,20 +818,18 @@ def render_3d_threat_map():
             pitch=45
         )
         
-        # Arc layer for connections
         arc_layer = pdk.Layer(
             "ArcLayer",
             data=arc_data,
             get_source_position=['source_lon', 'source_lat'],
             get_target_position=['dest_lon', 'dest_lat'],
-            get_source_color=[0, 255, 65, 200],  # Neon green
-            get_target_color=[255, 0, 85, 200],   # Neon red
+            get_source_color=[0, 255, 65, 200],
+            get_target_color=[255, 0, 85, 200],
             get_width='risk_score / 20',
             auto_highlight=True,
             pickable=True
         )
         
-        # Scatterplot for destinations
         scatter_layer = pdk.Layer(
             "ScatterplotLayer",
             data=arc_data,
@@ -919,7 +839,6 @@ def render_3d_threat_map():
             pickable=True
         )
         
-        # Render deck
         deck = pdk.Deck(
             layers=[arc_layer, scatter_layer],
             initial_view_state=view_state,
@@ -935,7 +854,6 @@ def render_3d_threat_map():
         
         st.pydeck_chart(deck)
         
-        # Stats
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Connections", len(arc_data))
@@ -956,11 +874,9 @@ def ip_to_coordinates(ip: str) -> tuple:
     Simple IP to coordinates mapping (placeholder)
     In production, use MaxMind GeoIP2 or similar
     """
-    # Placeholder: map common IP ranges to regions
     if not ip or ip.startswith('192.168') or ip.startswith('10.') or ip.startswith('127.'):
         return None, None
     
-    # Simple hash-based random coordinates (for demo)
     hash_val = sum(ord(c) for c in ip)
     lat = ((hash_val % 180) - 90) + (hash_val % 10) / 10
     lon = ((hash_val % 360) - 180) + ((hash_val * 7) % 10) / 10
@@ -970,20 +886,17 @@ def ip_to_coordinates(ip: str) -> tuple:
 
 def render_timeline_rewind():
     """Render timeline rewind system (OMEGA)."""
-    st.markdown("### ⏳ Timeline Rewind")
+    st.markdown("")
     st.markdown("Travel back in time to see system state at any point")
     
-    # Get time range from database
     stats = st.session_state.db.get_statistics()
     
     if stats['total_events'] == 0:
         st.info("✓ No historical events yet")
         return
     
-    # Time range selector
-    st.markdown("#### 🎛️ Timeline Scrubber")
+    st.markdown("")
     
-    # Get earliest and latest timestamps
     earliest = st.session_state.db.get_earliest_timestamp()
     latest = st.session_state.db.get_latest_timestamp()
     
@@ -995,7 +908,6 @@ def render_timeline_rewind():
     earliest_dt = datetime.fromisoformat(earliest)
     latest_dt = datetime.fromisoformat(latest)
     
-    # Slider for time selection
     selected_time = st.slider(
         "Select Point in Time",
         min_value=earliest_dt,
@@ -1007,17 +919,14 @@ def render_timeline_rewind():
     
     st.session_state.timeline_timestamp = selected_time.isoformat()
     
-    # Display historical state at selected time
-    st.markdown(f"#### 📸 System State at `{selected_time}`")
+    st.markdown("")
     
-    # Get events up to selected time
     historical_events = st.session_state.db.get_events_before(selected_time.isoformat(), limit=50)
     
     if not historical_events:
         st.info("✓ No events at this time")
         return
     
-    # Show metrics for that time
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -1036,15 +945,13 @@ def render_timeline_rewind():
         unique_procs = len(set(e.get('process_name', '') for e in historical_events))
         st.metric("Unique Processes", unique_procs)
     
-    # Show events table
-    st.markdown("#### 📊 Events at Selected Time")
+    st.markdown("")
     
     if historical_events:
         df = pd.DataFrame(historical_events)
         df = df[['timestamp', 'process_name', 'risk_score', 'user', 'analyzed']]
         st.dataframe(df, use_container_width=True)
         
-        # Export historical state
         if st.button("📥 Export Historical State"):
             export_path = f"historical_state_{selected_time.strftime('%Y%m%d_%H%M%S')}.json"
             with open(export_path, 'w') as f:
@@ -1054,13 +961,12 @@ def render_timeline_rewind():
 
 def render_rules_and_plugins():
     """Render rules engine and plugin manager interface (OMEGA)."""
-    st.markdown("### 📋 Rules Engine & Plugin System")
+    st.markdown("")
     
     col1, col2 = st.columns(2)
     
-    # Rules Engine Panel
     with col1:
-        st.markdown("#### 📜 YAML Rules Engine")
+        st.markdown("")
         
         if st.session_state.rules_engine:
             rules_info = st.session_state.rules_engine.get_rules_info()
@@ -1070,7 +976,6 @@ def render_rules_and_plugins():
             st.metric("Rules Matched", stats['rules_matched'])
             st.metric("Actions Executed", stats['actions_executed'])
             
-            # Hot reload button
             if st.button("🔄 Reload Rules"):
                 success = st.session_state.rules_engine.reload_rules()
                 if success:
@@ -1078,7 +983,6 @@ def render_rules_and_plugins():
                 else:
                     st.error("✗ Failed to reload rules")
             
-            # Show rules
             with st.expander("📖 View All Rules"):
                 for rule in rules_info:
                     status = "✅" if rule['enabled'] else "❌"
@@ -1094,15 +998,13 @@ def render_rules_and_plugins():
                     st.markdown(f"  Conditions: {rule['conditions']} | Actions: {', '.join(rule['actions'])}")
                     st.markdown("---")
             
-            # Edit rules.yaml
             if st.button("✏️ Edit Rules File"):
                 st.code(open('rules.yaml', 'r').read(), language='yaml')
         else:
             st.warning("⚠ Rules engine not available")
     
-    # Plugin Manager Panel
     with col2:
-        st.markdown("#### 🧩 Plugin System")
+        st.markdown("")
         
         if st.session_state.plugin_manager:
             plugins_info = st.session_state.plugin_manager.get_plugins_info()
@@ -1112,12 +1014,10 @@ def render_rules_and_plugins():
             st.metric("Enabled", stats['enabled'])
             st.metric("Events Processed", stats['events_processed'])
             
-            # Hot reload button
             if st.button("🔄 Reload Plugins"):
                 loaded = st.session_state.plugin_manager.reload_plugins()
                 st.success(f"✓ Reloaded {loaded} plugins")
             
-            # Show plugins
             with st.expander("🔌 View All Plugins"):
                 for plugin in plugins_info:
                     status = "✅" if plugin['enabled'] else "❌"
@@ -1127,7 +1027,6 @@ def render_rules_and_plugins():
                     st.markdown(f"  {plugin['description']}")
                     st.markdown(f"  `{plugin['file_path']}`")
                     
-                    # Enable/Disable button
                     col_a, col_b = st.columns(2)
                     with col_a:
                         if st.button(f"Disable", key=f"disable_{plugin['name']}"):
@@ -1142,9 +1041,8 @@ def render_rules_and_plugins():
         else:
             st.warning("⚠ Plugin manager not available")
     
-    # ML Anomaly Detector Panel
     st.markdown("---")
-    st.markdown("#### 🤖 ML Anomaly Detector")
+    st.markdown("")
     
     if st.session_state.ml_detector:
         ml_stats = st.session_state.ml_detector.get_stats()
@@ -1160,11 +1058,9 @@ def render_rules_and_plugins():
             rate = ml_stats.get('anomaly_rate', 0) * 100
             st.metric("Anomaly Rate", f"{rate:.1f}%")
         
-        # Model info
         last_trained = ml_stats.get('last_trained', 'Never')
         st.info(f"📊 Model last trained: {last_trained}")
         
-        # Manual training button
         if st.button("🏋️ Train Model Now"):
             success = st.session_state.ml_detector.train(force=True)
             if success:
@@ -1195,7 +1091,7 @@ def render_demo_mode():
 
 def render_system_hardening():
     """Render System Hardening tab for Windows security auditing and fixes."""
-    st.markdown("### 🛡️ System Hardening")
+    st.markdown("")
     st.markdown("Audit and fix Windows security settings automatically.")
     
     if not st.session_state.system_hardener:
@@ -1204,7 +1100,6 @@ def render_system_hardening():
     
     hardener = st.session_state.system_hardener
     
-    # Control buttons
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -1224,7 +1119,6 @@ def render_system_hardening():
                 try:
                     results = hardener.harden_system(st.session_state.hardening_results)
                     st.success(f"✓ Applied {sum(1 for r in results.values() if r.get('fixed'))} fixes")
-                    # Re-audit after fixes
                     st.session_state.hardening_results = hardener.audit_system()
                 except Exception as e:
                     st.error(f"✗ Hardening failed: {e}")
@@ -1236,11 +1130,9 @@ def render_system_hardening():
     
     st.markdown("---")
     
-    # Display audit results
     if st.session_state.hardening_results:
         results = st.session_state.hardening_results
         
-        # Summary metrics
         total_checks = len(results)
         passed = sum(1 for r in results.values() if r['status'] == 'OK')
         failed = sum(1 for r in results.values() if r['status'] == 'FAIL')
@@ -1259,14 +1151,12 @@ def render_system_hardening():
         
         st.markdown("---")
         
-        # Detailed results
-        st.markdown("#### 📋 Detailed Audit Results")
+        st.markdown("")
         
         for check_name, check_result in results.items():
             status = check_result['status']
             message = check_result['message']
             
-            # Color-code based on status
             if status == 'OK':
                 emoji = "✅"
                 color = "green"
@@ -1289,7 +1179,7 @@ def render_system_hardening():
     else:
         st.info("👆 Click 'Audit System' to scan your Windows security configuration")
         
-        st.markdown("#### 🎯 Security Checks Include:")
+        st.markdown("")
         st.markdown("""
         - ✅ Windows Defender Real-Time Protection
         - ✅ Windows Defender Cloud Protection
@@ -1306,7 +1196,7 @@ def render_system_hardening():
 
 def render_terminal():
     """Render embedded terminal tab for command execution."""
-    st.markdown("### 💻 Embedded Terminal")
+    st.markdown("")
     st.markdown("Execute system commands directly from NOSP interface.")
     
     if not st.session_state.terminal:
@@ -1315,7 +1205,6 @@ def render_terminal():
     
     terminal = st.session_state.terminal
     
-    # Command input
     col1, col2 = st.columns([5, 1])
     
     with col1:
@@ -1327,10 +1216,9 @@ def render_terminal():
         )
     
     with col2:
-        st.markdown("<br>", unsafe_allow_html=True)  # Alignment spacing
+        st.markdown("<br>", unsafe_allow_html=True)
         shell_type = st.selectbox("Shell:", ["CMD", "PowerShell"], key="shell_type", label_visibility="collapsed")
     
-    # Execute button
     col1, col2, col3 = st.columns([2, 2, 6])
     
     with col1:
@@ -1343,7 +1231,6 @@ def render_terminal():
             st.success("✓ History cleared")
             st.rerun()
     
-    # Execute command
     if execute_btn and command:
         with st.spinner(f"Executing: {command}"):
             try:
@@ -1352,7 +1239,6 @@ def render_terminal():
                     shell="powershell" if shell_type == "PowerShell" else "cmd"
                 )
                 
-                # Add to session history for display
                 if 'terminal_history' not in st.session_state:
                     st.session_state.terminal_history = []
                 
@@ -1365,7 +1251,6 @@ def render_terminal():
                     'timestamp': datetime.now().strftime("%H:%M:%S")
                 })
                 
-                # Keep only last 20 entries
                 if len(st.session_state.terminal_history) > 20:
                     st.session_state.terminal_history = st.session_state.terminal_history[-20:]
                 
@@ -1374,8 +1259,7 @@ def render_terminal():
     
     st.markdown("---")
     
-    # Command templates
-    st.markdown("#### 🎯 Quick Command Templates")
+    st.markdown("")
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -1409,11 +1293,9 @@ def render_terminal():
     
     st.markdown("---")
     
-    # Command history display
-    st.markdown("#### 📜 Command History")
+    st.markdown("")
     
     if hasattr(st.session_state, 'terminal_history') and st.session_state.terminal_history:
-        # Reverse to show newest first
         for idx, entry in enumerate(reversed(st.session_state.terminal_history)):
             status_color = "green" if entry['exit_code'] == 0 else "red"
             status_emoji = "✅" if entry['exit_code'] == 0 else "❌"
@@ -1426,7 +1308,6 @@ def render_terminal():
     else:
         st.info("👆 Execute commands to see history here")
     
-    # Terminal info
     with st.expander("ℹ️ Terminal Information"):
         st.markdown("""
         **Safety Features:**
@@ -1449,19 +1330,17 @@ def render_terminal():
 
 def render_active_defense():
     """Render Active Defense controls for threat response."""
-    st.markdown("### ⚔️ Active Defense Controls")
+    st.markdown("")
     
     st.warning("⚠️ Use these controls with caution. They perform direct system operations.")
     
-    # Get processes to act on
     high_risk_events = st.session_state.db.get_recent_events(limit=20, min_risk=70)
     
     if not high_risk_events:
         st.info("✓ No high-risk processes detected")
         return
     
-    # Display high-risk processes with action buttons
-    for event in high_risk_events[:10]:  # Limit to top 10
+    for event in high_risk_events[:10]:
         process_name = Path(event['image']).name
         risk_score = event['risk_score']
         pid = event['process_id']
@@ -1476,7 +1355,6 @@ def render_active_defense():
             with col2:
                 st.markdown("**Actions:**")
                 
-                # Terminate button
                 if st.button(f"🛑 Terminate", key=f"kill_{pid}"):
                     try:
                         if RUST_AVAILABLE:
@@ -1494,7 +1372,6 @@ def render_active_defense():
                         st.error(f"✗ Error: {e}")
                         logger.error(f"✗ Terminate failed: {e}")
                 
-                # Suspend button
                 if st.button(f"⏸️ Suspend", key=f"suspend_{pid}"):
                     try:
                         if RUST_AVAILABLE:
@@ -1509,7 +1386,6 @@ def render_active_defense():
                     except Exception as e:
                         st.error(f"✗ Error: {e}")
                 
-                # Quarantine button
                 if st.button(f"🔒 Quarantine", key=f"quarantine_{pid}"):
                     try:
                         if RUST_AVAILABLE:
@@ -1527,7 +1403,7 @@ def render_active_defense():
 
 def render_process_tree():
     """Render process tree visualization."""
-    st.markdown("### 🌳 Process Tree Visualization")
+    st.markdown("")
     
     if not st.session_state.process_tree:
         st.info("Process tree not available")
@@ -1542,27 +1418,25 @@ def render_process_tree():
     try:
         from streamlit_agraph import agraph, Node, Edge, Config
         
-        # Convert to streamlit-agraph format
         nodes = []
         edges = []
         
         for node in tree_data['nodes']:
             risk = node.get('risk', 0)
             
-            # Color by risk
             if risk >= 75:
-                color = "#FF4444"
+                color = "#FF0055"
             elif risk >= 60:
-                color = "#FF8800"
+                color = "#FF7700"
             elif risk >= 30:
-                color = "#FFCC00"
+                color = "#FFAA00"
             else:
                 color = "#00FF41"
             
             nodes.append(Node(
                 id=str(node['id']),
                 label=node['label'],
-                size=20 + (risk / 5),  # Larger nodes for higher risk
+                size=20 + (risk / 5),
                 color=color,
                 title=f"{node['path']}\nRisk: {risk}"
             ))
@@ -1571,7 +1445,7 @@ def render_process_tree():
             edges.append(Edge(
                 source=str(edge['source']),
                 target=str(edge['target']),
-                color="#00D9FF"
+                color="#FFFFFF"
             ))
         
         config = Config(
@@ -1581,7 +1455,7 @@ def render_process_tree():
             physics=True,
             hierarchical=False,
             nodeHighlightBehavior=True,
-            highlightColor="#00FF41",
+            highlightColor="#FFFFFF",
             collapsible=False
         )
         
@@ -1596,12 +1470,11 @@ def render_process_tree():
         st.error(f"✗ Visualization error: {e}")
         logger.error(f"✗ Process tree visualization failed: {e}")
     
-    # Show suspicious chains
-    st.markdown("#### 🔍 Suspicious Process Chains")
+    st.markdown("")
     suspicious_chains = st.session_state.process_tree.find_suspicious_chains(min_risk=60)
     
     if suspicious_chains:
-        for i, chain in enumerate(suspicious_chains[:5]):  # Show top 5
+        for i, chain in enumerate(suspicious_chains[:5]):
             chain_info = " → ".join([str(pid) for pid in chain])
             st.warning(f"Chain {i+1}: {chain_info}")
     else:
@@ -1610,9 +1483,8 @@ def render_process_tree():
 
 def render_enhanced_analysis():
     """Render enhanced AI analysis with MITRE ATT&CK mapping."""
-    st.markdown("### 🔍 AI Threat Analysis & MITRE ATT&CK Mapping")
+    st.markdown("")
     
-    # Get high-risk analyzed events
     analyzed_events = st.session_state.db.get_recent_events(limit=20, min_risk=60)
     analyzed_events = [e for e in analyzed_events if e.get('analyzed') == 1]
     
@@ -1620,7 +1492,6 @@ def render_enhanced_analysis():
         st.info("✓ No high-risk threats detected")
         return
     
-    # Analyze button for unanalyzed events
     unanalyzed = st.session_state.db.get_high_risk_unanalyzed(threshold=60, limit=5)
     if unanalyzed:
         st.warning(f"⚠️ {len(unanalyzed)} high-risk events awaiting analysis")
@@ -1634,8 +1505,7 @@ def render_enhanced_analysis():
                 st.success("✓ Analysis complete!")
                 st.rerun()
     
-    # Display analyzed events with MITRE info
-    for event in analyzed_events[:5]:  # Show top 5
+    for event in analyzed_events[:5]:
         risk_level = st.session_state.risk_scorer.get_risk_level(event['risk_score'])
         process_name = Path(event['image']).name
         
@@ -1655,7 +1525,6 @@ def render_enhanced_analysis():
                 analysis_text = event.get('ai_analysis', 'No analysis available')
                 st.markdown(analysis_text)
                 
-                # Parse and display MITRE ATT&CK info
                 import re
                 mitre_tactic = re.search(r'MITRE_TACTIC:\s*([^\n]+)', analysis_text)
                 mitre_technique = re.search(r'MITRE_TECHNIQUE:\s*([^\n]+)', analysis_text)
@@ -1672,7 +1541,6 @@ def render_enhanced_analysis():
                         technique = mitre_technique.group(1).strip()
                         st.info(f"**Technique:** {technique}")
                         
-                        # Extract technique ID for link
                         tech_id = re.search(r'T\d{4}(?:\.\d{3})?', technique)
                         if tech_id:
                             mitre_url = f"https://attack.mitre.org/techniques/{tech_id.group(0).replace('.', '/')}/"
@@ -1682,16 +1550,11 @@ def render_enhanced_analysis():
             st.code(event['command_line'], language=None)
 
 
-# ============================================================================
-# MAIN APPLICATION FLOW
-# ============================================================================
 
 def main():
     """Main application entry point."""
-    # Initialize components
     if not st.session_state.initialized:
         with st.spinner("Initializing NOSP components..."):
-            # Restore previous session (APEX feature)
             try:
                 session_mgr = SessionManager()
                 session_mgr.restore_to_session_state(st.session_state)
@@ -1703,7 +1566,6 @@ def main():
                 st.error("Failed to initialize. Please check logs.")
                 return
             
-            # Start auto-save thread (APEX feature)
             if st.session_state.session_manager:
                 try:
                     st.session_state.session_manager.start_auto_save(st.session_state)
@@ -1711,15 +1573,12 @@ def main():
                 except Exception as e:
                     logger.warning(f"⚠ Auto-save not available: {e}")
     
-    # Render UI
     render_sidebar()
     render_header()
     
-    # Process events if monitoring
     if RUST_AVAILABLE and st.session_state.monitoring:
         process_events()
     
-    # Main content tabs (OMEGA + APEX + EVENT HORIZON)
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13 = st.tabs([
         "📊 Dashboard", 
         "🔍 Analysis", 
@@ -1792,12 +1651,12 @@ def main():
         render_terminal()
     
     with tab10:
-        st.markdown("### ⚙️ Configuration")
+        st.markdown("")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("#### Audio Alerts")
+            st.markdown("")
             if st.session_state.alert_system:
                 alert_enabled = st.checkbox(
                     "Enable Voice Alerts", 
@@ -1814,7 +1673,7 @@ def main():
                 st.warning("Audio system unavailable")
         
         with col2:
-            st.markdown("#### System Tray")
+            st.markdown("")
             if st.session_state.system_tray and st.session_state.system_tray.is_running():
                 st.success("✓ System tray active")
                 if st.button("🔔 Test Notification"):
@@ -1827,7 +1686,6 @@ def main():
         
         st.markdown("---")
         
-        # Show system info
         with st.expander("🖥️ System Information"):
             import psutil
             
@@ -1845,36 +1703,31 @@ def main():
             
             st.json(info_data)
         
-        # Debug logs
         with st.expander("📋 Recent Logs"):
             st.info("Log viewer coming soon...")
     
-    # EVENT HORIZON TAB 11: Block chain + P2P Mesh
     with tab11:
-        st.markdown("### 🌌 Event Horizon - Immutable Ledger & Hive Mind")
+        st.markdown("")
         st.markdown("*Blockchain audit trail and decentralized threat intelligence*")
         st.markdown("---")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("#### 📜 Immutable Blockchain Ledger")
+            st.markdown("")
             try:
                 ledger = get_ledger()
                 
-                # Blockchain status
                 chain_valid = ledger.validate_chain()
                 if chain_valid:
                     st.success(f"✓ Blockchain Integrity: **VALID** ({len(ledger.chain)} blocks)")
                 else:
                     st.error("⚠️ Blockchain Tampered! Chain validation failed!")
                 
-                # Chain summary
                 summary = ledger.get_chain_summary()
                 st.metric("Total Blocks", summary["total_blocks"])
                 st.metric("Latest Block Hash", summary["latest_hash"][:16] + "...")
                 
-                # Add event demo
                 st.markdown("**Log Security Event:**")
                 event_type = st.selectbox("Event Type", [
                     "Malware Detection",
@@ -1891,13 +1744,12 @@ def main():
                         st.success(f"✓ Event logged to blockchain (block mined)")
                         st.rerun()
                 
-                # Show recent blocks
                 st.markdown("**Recent Blocks:**")
                 if len(ledger.chain) > 1:
                     for block in reversed(ledger.chain[-6:]):
-                        if block.index == 0:  # Skip genesis
+                        if block.index == 0:
                             continue
-                        with st.expander(f"Block #{block.index} - {block.timestamp[:19]}"):
+                        with st.expander(f"Block {block.index}"):
                             st.json(block.event_data)
                             st.code(f"Hash: {block.hash}", language="text")
                             st.code(f"Previous: {block.previous_hash}", language="text")
@@ -1909,14 +1761,12 @@ def main():
                 st.error(f"Ledger error: {e}")
         
         with col2:
-            st.markdown("#### 🌐 P2P Mesh Network (Hive Mind)")
+            st.markdown("")
             
-            # Session state for mesh network
             if 'mesh_network' not in st.session_state:
                 st.session_state.mesh_network = None
                 st.session_state.mesh_running = False
             
-            # Control buttons
             col_a, col_b = st.columns(2)
             with col_a:
                 if not st.session_state.mesh_running:
@@ -1926,7 +1776,6 @@ def main():
                             mesh = MeshNetwork(node_name="NOSP-" + str(int(time.time()))[-4:])
                             st.session_state.mesh_network = mesh
                             
-                            # Start in background (simplified for demo)
                             st.session_state.mesh_running = True
                             st.success("✓ Mesh network started!")
                             st.info("Discovering peers on UDP port 41337...")
@@ -1943,7 +1792,6 @@ def main():
                     if st.button("🔄 Refresh Peers", key="refresh_peers"):
                         st.rerun()
             
-            # Show peer status
             if st.session_state.mesh_running and st.session_state.mesh_network:
                 mesh = st.session_state.mesh_network
                 peers_info = mesh.get_peers_info()
@@ -1962,7 +1810,6 @@ def main():
                 else:
                     st.info("No peers discovered yet. Waiting for broadcasts...")
                 
-                # Broadcast threat demo
                 st.markdown("**Broadcast Threat Signal:**")
                 threat_type = st.selectbox("Threat Type", [
                     "Malware Hash",
@@ -1976,7 +1823,6 @@ def main():
                 if st.button("📡 Broadcast to Hive", key="broadcast_threat"):
                     if threat_value:
                         try:
-                            # In async context, this would be: await mesh.broadcast_threat(...)
                             st.success(f"✓ Threat broadcasted to {len(peers_info)} peers")
                             st.info(f"Threat: {threat_type} = {threat_value} (Risk: {risk_score})")
                         except Exception as e:
@@ -1991,9 +1837,8 @@ def main():
                 - Decentralized Intelligence Sharing
                 """)
     
-    # EVENT HORIZON TAB 12: Sandbox (The Cage)
     with tab12:
-        st.markdown("### 🔒 The Cage - Zero-Trust Sandbox")
+        st.markdown("")
         st.markdown("*Detonate suspicious files in isolated execution environment*")
         st.markdown("---")
         
@@ -2002,7 +1847,7 @@ def main():
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            st.markdown("#### 📥 Upload & Detonate")
+            st.markdown("")
             
             uploaded_file = st.file_uploader("Select file to detonate", type=["exe", "bat", "ps1", "dll", "scr", "cmd", "vbs"], key="cage_file")
             
@@ -2014,7 +1859,6 @@ def main():
                 if st.button("💥 DETONATE FILE", key="detonate_file", type="primary"):
                     with st.spinner("Detonating in sandbox..."):
                         try:
-                            # Save uploaded file to temp location
                             import tempfile
                             import os
                             
@@ -2022,14 +1866,11 @@ def main():
                                 tmp_file.write(uploaded_file.getbuffer())
                                 tmp_path = tmp_file.name
                             
-                            # Detonate in cage
                             cage = Cage()
                             result = cage.detonate_file(tmp_path, timeout=timeout)
                             
-                            # Store result in session state
                             st.session_state.cage_result = result
                             
-                            # Clean up temp file
                             try:
                                 os.unlink(tmp_path)
                             except:
@@ -2042,7 +1883,7 @@ def main():
                             st.error(f"Detonation failed: {e}")
         
         with col2:
-            st.markdown("#### 🎯 Quick Command Test")
+            st.markdown("")
             st.markdown("Test suspicious commands without file upload")
             
             test_command = st.text_area("Command to execute", 
@@ -2061,29 +1902,25 @@ def main():
                         except Exception as e:
                             st.error(f"Execution failed: {e}")
         
-        # Show results
         if hasattr(st.session_state, 'cage_result') and st.session_state.cage_result:
             st.markdown("---")
-            st.markdown("### 📊 Sandbox Analysis Results")
+            st.markdown("")
             
             result = st.session_state.cage_result
             
-            # Verdict banner
             if result.verdict == "BENIGN":
-                st.success(f"### ✓ VERDICT: {result.verdict}")
+                st.success("✓ File is benign")
             elif result.verdict == "SUSPICIOUS":
-                st.warning(f"### ⚠️ VERDICT: {result.verdict}")
-            else:  # MALICIOUS
-                st.error(f"### 🚨 VERDICT: {result.verdict}")
+                st.warning("⚠ File is suspicious")
+            else:
+                st.error("✗ File is malicious")
             
-            # Metrics
             col_a, col_b, col_c, col_d = st.columns(4)
             col_a.metric("Risk Score", f"{result.risk_score}/100")
             col_b.metric("Behaviors Detected", len(result.behaviors_detected))
             col_c.metric("Execution Time", f"{result.execution_time:.2f}s")
             col_d.metric("Exit Code", result.exit_code)
             
-            # Behavioral events
             if result.behaviors_detected:
                 st.markdown("**Suspicious Behaviors:**")
                 for behavior in result.behaviors_detected:
@@ -2101,29 +1938,24 @@ def main():
             else:
                 st.info("No suspicious behaviors detected")
             
-            # Output
             if result.output:
                 with st.expander("📄 Execution Output"):
                     st.code(result.output, language="text")
             
-            # Error
             if result.error:
                 with st.expander("❌ Errors"):
                     st.code(result.error, language="text")
         else:
             st.info("👆 Upload a file or enter a command to begin sandbox analysis")
     
-    # EVENT HORIZON TAB 13: God Mode
     with tab13:
-        st.markdown("### ⚡ God Mode - Ultimate Control")
+        st.markdown("")
         st.markdown("*Packet injection, self-defense, VM detection, clipboard sentinel*")
         st.markdown("---")
         
-        # Check if Rust EVENT HORIZON functions are available
         eh_available = False
         try:
             import nosp_core
-            # Check for EVENT HORIZON functions
             if hasattr(nosp_core, 'enable_critical_process_py'):
                 eh_available = True
         except:
@@ -2140,13 +1972,12 @@ def main():
         ])
         
         with tab_a:
-            st.markdown("#### 🛡️ Self-Defense Mechanisms")
+            st.markdown("")
             
             if eh_available:
                 try:
                     import nosp_core
                     
-                    # Get defense status
                     status = nosp_core.get_defense_status_py()
                     
                     st.markdown("**Defense Status:**")
@@ -2156,7 +1987,6 @@ def main():
                     
                     st.markdown("---")
                     
-                    # Critical process toggle
                     st.markdown("**⚠️ Critical Process Flag**")
                     st.warning("Enabling this makes NOSP critical to Windows. Terminating it will trigger a BSOD!")
                     
@@ -2177,7 +2007,6 @@ def main():
                             except Exception as e:
                                 st.error(f"Failed: {e}")
                     
-                    # Debugger detection
                     st.markdown("---")
                     st.markdown("**🔍 Debugger Detection**")
                     if st.button("Scan for Debuggers", key="scan_debugger"):
@@ -2187,7 +2016,6 @@ def main():
                         else:
                             st.success("✓ No debugger detected")
                     
-                    # Handle attempts
                     st.markdown("---")
                     st.markdown("**👀 Handle Monitoring**")
                     if st.button("Detect Handle Attempts", key="detect_handles"):
@@ -2208,7 +2036,7 @@ def main():
                 st.info("Compile Rust modules to enable self-defense features")
         
         with tab_b:
-            st.markdown("#### 🔍 VM & Debugger Detection")
+            st.markdown("")
             
             if eh_available:
                 try:
@@ -2223,7 +2051,6 @@ def main():
                     if hasattr(st.session_state, 'env_status'):
                         env = st.session_state.env_status
                         
-                        # Overall status
                         if env['is_suspicious']:
                             st.error("🚨 SUSPICIOUS ENVIRONMENT DETECTED!")
                         else:
@@ -2267,13 +2094,12 @@ def main():
                 st.info("Compile Rust modules to enable VM detection")
         
         with tab_c:
-            st.markdown("#### 📋 Clipboard Sentinel")
+            st.markdown("")
             
             if eh_available:
                 try:
                     import nosp_core
                     
-                    # Check if monitoring
                     is_monitoring = nosp_core.is_monitoring_py()
                     
                     col_m, col_n = st.columns(2)
@@ -2299,7 +2125,6 @@ def main():
                         st.markdown("---")
                         st.markdown("**Recent Clipboard Activity:**")
                         
-                        # Get history
                         history = nosp_core.get_clipboard_history_py()
                         
                         if history:
@@ -2315,7 +2140,6 @@ def main():
                         else:
                             st.info("No clipboard activity recorded yet")
                         
-                        # Suspicious events
                         st.markdown("---")
                         st.markdown("**🚨 Hijacking Attempts:**")
                         suspicious = nosp_core.get_latest_suspicious_py()
@@ -2330,7 +2154,6 @@ def main():
                         else:
                             st.success("✓ No hijacking attempts detected")
                         
-                        # Whitelist management
                         st.markdown("---")
                         st.markdown("**Whitelist Management:**")
                         
@@ -2357,7 +2180,7 @@ def main():
                 st.info("Compile Rust modules to enable clipboard monitoring")
         
         with tab_d:
-            st.markdown("#### 💉 Packet Injection (C)")
+            st.markdown("")
             st.markdown("*TCP RST injection at wire level*")
             
             st.warning("⚠️ Requires Administrator privileges and compiled C modules")
@@ -2378,10 +2201,6 @@ def main():
             if st.button("💥 Inject RST Packet", key="inject_rst", type="primary"):
                 st.error("⚠️ Packet injection requires compiled C module and Administrator privileges")
                 st.info(f"Would inject RST: {src_ip}:{src_port} -> {dst_ip}:{dst_port} (seq={seq_num})")
-                # In production: Call C packet injector via ctypes/cffi
-                # import ctypes
-                # libinject = ctypes.CDLL('./native/c/packet_injector.so')
-                # result = libinject.inject_tcp_rst(...)
 
 
 if __name__ == "__main__":

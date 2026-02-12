@@ -30,13 +30,10 @@ pub struct RegistryValue {
 
 const BACKUP_DIR: &str = "C:\\ProgramData\\NOSP\\RegistryBackups";
 
-/// Backup a registry key and all its values
 pub fn backup_registry_key(root_key: &str, subkey: &str) -> Result<String, String> {
     unsafe {
-        // Parse root key
         let hkey_root = parse_root_key(root_key)?;
 
-        // Open key
         let subkey_wide: Vec<u16> = OsStr::new(subkey)
             .encode_wide()
             .chain(std::iter::once(0))
@@ -55,7 +52,6 @@ pub fn backup_registry_key(root_key: &str, subkey: &str) -> Result<String, Strin
             return Err(format!("Failed to open registry key: error code {}", result));
         }
 
-        // Enumerate values
         let mut values = Vec::new();
         let mut index = 0;
 
@@ -95,7 +91,6 @@ pub fn backup_registry_key(root_key: &str, subkey: &str) -> Result<String, Strin
             index += 1;
         }
 
-        // Enumerate subkeys
         let mut subkeys = Vec::new();
         let mut subkey_index = 0;
 
@@ -128,7 +123,6 @@ pub fn backup_registry_key(root_key: &str, subkey: &str) -> Result<String, Strin
 
         RegCloseKey(hkey);
 
-        // Create backup structure
         let backup = RegistryBackup {
             key_path: format!("{}\\{}", root_key, subkey),
             timestamp: Local::now().format("%Y-%m-%d_%H-%M-%S").to_string(),
@@ -136,11 +130,9 @@ pub fn backup_registry_key(root_key: &str, subkey: &str) -> Result<String, Strin
             subkeys,
         };
 
-        // Serialize to JSON
         let json = serde_json::to_string_pretty(&backup)
             .map_err(|e| format!("Failed to serialize backup: {}", e))?;
 
-        // Save to file
         create_dir_all(BACKUP_DIR)
             .map_err(|e| format!("Failed to create backup directory: {}", e))?;
 
@@ -161,9 +153,7 @@ pub fn backup_registry_key(root_key: &str, subkey: &str) -> Result<String, Strin
     }
 }
 
-/// Restore registry key from backup file
 pub fn restore_registry_key(backup_file: &str) -> Result<(), String> {
-    // Read backup file
     let mut file = File::open(backup_file)
         .map_err(|e| format!("Failed to open backup file: {}", e))?;
 
@@ -171,12 +161,10 @@ pub fn restore_registry_key(backup_file: &str) -> Result<(), String> {
     file.read_to_string(&mut json)
         .map_err(|e| format!("Failed to read backup file: {}", e))?;
 
-    // Deserialize
     let backup: RegistryBackup = serde_json::from_str(&json)
         .map_err(|e| format!("Failed to parse backup file: {}", e))?;
 
     unsafe {
-        // Parse key path
         let parts: Vec<&str> = backup.key_path.splitn(2, '\\').collect();
         if parts.len() != 2 {
             return Err("Invalid key path in backup".to_string());
@@ -185,7 +173,6 @@ pub fn restore_registry_key(backup_file: &str) -> Result<(), String> {
         let hkey_root = parse_root_key(parts[0])?;
         let subkey = parts[1];
 
-        // Open or create key
         let subkey_wide: Vec<u16> = OsStr::new(subkey)
             .encode_wide()
             .chain(std::iter::once(0))
@@ -208,7 +195,6 @@ pub fn restore_registry_key(backup_file: &str) -> Result<(), String> {
             return Err(format!("Failed to open/create registry key: error code {}", result));
         }
 
-        // Restore values
         for value in &backup.values {
             let value_name_wide: Vec<u16> = OsStr::new(&value.name)
                 .encode_wide()
@@ -231,7 +217,6 @@ pub fn restore_registry_key(backup_file: &str) -> Result<(), String> {
     }
 }
 
-/// Delete registry key (for testing unblock)
 pub fn delete_registry_key(root_key: &str, subkey: &str) -> Result<(), String> {
     unsafe {
         let hkey_root = parse_root_key(root_key)?;
@@ -251,7 +236,6 @@ pub fn delete_registry_key(root_key: &str, subkey: &str) -> Result<(), String> {
     }
 }
 
-/// List available backups
 pub fn list_registry_backups() -> Result<Vec<String>, String> {
     use std::fs::read_dir;
 
@@ -271,12 +255,11 @@ pub fn list_registry_backups() -> Result<Vec<String>, String> {
     }
 
     backups.sort();
-    backups.reverse(); // Most recent first
+    backups.reverse();
 
     Ok(backups)
 }
 
-/// Backup critical autostart registry keys
 pub fn backup_autostart_keys() -> Result<Vec<String>, String> {
     let autostart_keys = vec![
         ("HKEY_LOCAL_MACHINE", "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"),
@@ -297,7 +280,6 @@ pub fn backup_autostart_keys() -> Result<Vec<String>, String> {
     Ok(backup_files)
 }
 
-/// Parse root key string to HKEY
 unsafe fn parse_root_key(root_key: &str) -> Result<HKEY, String> {
     match root_key {
         "HKEY_LOCAL_MACHINE" | "HKLM" => Ok(HKEY_LOCAL_MACHINE),
@@ -315,8 +297,6 @@ mod tests {
 
     #[test]
     fn test_backup_and_restore() {
-        // This test requires Administrator privileges
-        // Test backing up a safe key
         let result = backup_registry_key("HKEY_CURRENT_USER", "Software\\NOSP\\Test");
         if result.is_ok() {
             println!("Backup successful: {}", result.unwrap());

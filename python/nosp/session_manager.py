@@ -32,19 +32,18 @@ class SessionManager:
         self._save_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         
-        # Keys to exclude from serialization
         self.exclude_keys = {
-            'db',  # Database connection
-            'ai_engine',  # AI engine with model
-            'alert_system',  # Audio system
-            'system_tray',  # System tray icon
-            'process_tree',  # NetworkX graph
-            'forensic_reporter',  # Reporter with file handles
-            'rules_engine',  # Rules engine
-            'ml_detector',  # ML model
-            'plugin_manager',  # Plugin manager
-            'alert_manager',  # Alert manager
-            '_is_running',  # Runtime flags
+            'db',
+            'ai_engine',
+            'alert_system',
+            'system_tray',
+            'process_tree',
+            'forensic_reporter',
+            'rules_engine',
+            'ml_detector',
+            'plugin_manager',
+            'alert_manager',
+            '_is_running',
         }
     
     def save_session(self, session_state: Dict[str, Any]) -> bool:
@@ -58,14 +57,11 @@ class SessionManager:
             True if saved successfully
         """
         try:
-            # Filter out non-serializable objects
             serializable_state = self._make_serializable(session_state)
             
-            # Add metadata
             serializable_state['_saved_at'] = datetime.now().isoformat()
             serializable_state['_version'] = 'vAPEX'
             
-            # Write to file
             with open(self.session_file, 'w') as f:
                 json.dump(serializable_state, f, indent=2)
             
@@ -91,7 +87,6 @@ class SessionManager:
             with open(self.session_file, 'r') as f:
                 state = json.load(f)
             
-            # Remove metadata
             saved_at = state.pop('_saved_at', None)
             version = state.pop('_version', None)
             
@@ -115,17 +110,14 @@ class SessionManager:
         serializable = {}
         
         for key, value in state.items():
-            # Skip excluded keys
             if key in self.exclude_keys:
                 continue
             
-            # Skip private keys (start with _)
             if key.startswith('_'):
                 continue
             
-            # Try to serialize
             try:
-                json.dumps(value)  # Test if serializable
+                json.dumps(value)
                 serializable[key] = value
             except (TypeError, ValueError):
                 logger.debug(f"Skipping non-serializable key: {key}")
@@ -151,11 +143,9 @@ class SessionManager:
             logger.info(f"Auto-save started (interval: {self.auto_save_interval}s)")
             
             while not self._stop_event.is_set():
-                # Wait for interval or stop signal
                 if self._stop_event.wait(self.auto_save_interval):
-                    break  # Stop signal received
+                    break
                 
-                # Save session
                 self.save_session(session_state)
         
         self._save_thread = threading.Thread(target=auto_save_worker, daemon=True)
@@ -191,7 +181,6 @@ class SessionManager:
             return False
         
         try:
-            # Restore each key
             for key, value in saved_state.items():
                 target_state[key] = value
             

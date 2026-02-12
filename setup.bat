@@ -1,6 +1,4 @@
 @echo off
-REM NOSP Build and Setup Script for Windows
-REM This script automates the complete setup process
 
 echo ===============================================
 echo    NOSP - Null OS Security Program
@@ -8,7 +6,6 @@ echo    Build and Setup Script
 echo ===============================================
 echo.
 
-REM Check for Python
 python --version >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Python is not installed or not in PATH
@@ -18,7 +15,6 @@ if errorlevel 1 (
 )
 echo [OK] Python is installed
 
-REM Check for Rust
 rustc --version >nul 2>&1
 if errorlevel 1 (
     echo [WARNING] Rust is not installed
@@ -54,10 +50,8 @@ if %RUST_AVAILABLE%==1 (
     echo ===============================================
     echo.
     
-    REM Install maturin if not present
     pip install maturin
     
-    REM Build the Rust extension
     maturin develop --release
     
     if errorlevel 1 (

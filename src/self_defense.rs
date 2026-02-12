@@ -41,7 +41,6 @@ use windows::Win32::System::Diagnostics::Debug::{
 };
 use windows::core::PCWSTR;
 
-// NtSetInformationProcess function signature (undocumented)
 type NtSetInformationProcessFn = unsafe extern "system" fn(
     ProcessHandle: HANDLE,
     ProcessInformationClass: u32,
@@ -49,7 +48,7 @@ type NtSetInformationProcessFn = unsafe extern "system" fn(
     ProcessInformationLength: u32,
 ) -> NTSTATUS;
 
-const PROCESS_INFORMATION_CLASS_CRITICAL: u32 = 29; // ProcessBreakOnTermination
+const PROCESS_INFORMATION_CLASS_CRITICAL: u32 = 29;
 
 /**
  * Enable critical process flag for NOSP.
@@ -65,7 +64,6 @@ const PROCESS_INFORMATION_CLASS_CRITICAL: u32 = 29; // ProcessBreakOnTermination
  */
 pub fn enable_critical_process() -> Result<(), String> {
     unsafe {
-        // Load ntdll.dll
         let ntdll = windows::Win32::Foundation::GetModuleHandleW(
             PCWSTR::from_raw("ntdll.dll\0".encode_utf16().collect::<Vec<u16>>().as_ptr())
         );
@@ -74,7 +72,6 @@ pub fn enable_critical_process() -> Result<(), String> {
             return Err("Failed to load ntdll.dll".to_string());
         }
         
-        // Get NtSetInformationProcess function pointer
         let proc_name = "NtSetInformationProcess\0";
         let proc_addr = windows::Win32::System::LibraryLoader::GetProcAddress(
             ntdll.unwrap(),
@@ -87,7 +84,6 @@ pub fn enable_critical_process() -> Result<(), String> {
         
         let nt_set_info: NtSetInformationProcessFn = std::mem::transmute(proc_addr);
         
-        // Enable critical process flag
         let mut critical_flag: u32 = 1;
         let status = nt_set_info(
             GetCurrentProcess(),
@@ -133,7 +129,6 @@ pub fn disable_critical_process() -> Result<(), String> {
         
         let nt_set_info: NtSetInformationProcessFn = std::mem::transmute(proc_addr);
         
-        // Disable critical process flag
         let mut critical_flag: u32 = 0;
         let status = nt_set_info(
             GetCurrentProcess(),
@@ -198,7 +193,6 @@ pub fn detect_handle_attempts() -> Result<Vec<(u32, u32)>, String> {
             PROCESS_ALL_ACCESS, TH32CS_SNAPPROCESS, PROCESSENTRY32W
         };
         
-        // Get snapshot of processes
         let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
             .map_err(|e| format!("CreateToolhelp32Snapshot failed: {}", e))?;
         
@@ -207,14 +201,11 @@ pub fn detect_handle_attempts() -> Result<Vec<(u32, u32)>, String> {
             ..Default::default()
         };
         
-        // Iterate through processes
         if Process32FirstW(snapshot, &mut pe32).is_ok() {
             loop {
                 let pid = pe32.th32ProcessID;
                 
-                // Skip ourselves
                 if pid != current_pid {
-                    // Try to open process with minimal rights
                     let handle = OpenProcess(
                         PROCESS_QUERY_INFORMATION,
                         BOOL(0),
@@ -222,9 +213,6 @@ pub fn detect_handle_attempts() -> Result<Vec<(u32, u32)>, String> {
                     );
                     
                     if let Ok(h) = handle {
-                        // Check if this process has a handle to us
-                        // (This is a simplified check; full implementation would
-                        // enumerate handles using NtQuerySystemInformation)
                         
                         let _ = CloseHandle(h);
                     }
@@ -251,17 +239,14 @@ pub fn detect_handle_attempts() -> Result<Vec<(u32, u32)>, String> {
 pub fn get_defense_status() -> std::collections::HashMap<String, String> {
     let mut status = std::collections::HashMap::new();
     
-    // Check if debugger is present
     match is_debugger_present() {
         Ok(true) => status.insert("debugger".to_string(), "DETECTED".to_string()),
         Ok(false) => status.insert("debugger".to_string(), "None".to_string()),
         Err(e) => status.insert("debugger".to_string(), format!("Error: {}", e))
     };
     
-    // Check critical process status (requires admin to query)
     status.insert("critical_process".to_string(), "Unknown (requires admin)".to_string());
     
-    // Check handle monitoring
     match detect_handle_attempts() {
         Ok(handles) => status.insert(
             "suspicious_handles".to_string(),
@@ -282,7 +267,6 @@ mod tests {
         let result = is_debugger_present();
         assert!(result.is_ok());
         
-        // Should be false in normal test environment
         assert_eq!(result.unwrap(), false);
     }
     

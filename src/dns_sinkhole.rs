@@ -17,29 +17,23 @@ pub struct SinkholeEntry {
     pub is_active: bool,
 }
 
-/// Add domain to DNS sinkhole (redirects to 127.0.0.1)
 pub fn sinkhole_domain(domain: &str) -> Result<(), String> {
     sinkhole_domain_to_ip(domain, "127.0.0.1")
 }
 
-/// Add domain to DNS sinkhole with custom IP
 pub fn sinkhole_domain_to_ip(domain: &str, ip: &str) -> Result<(), String> {
-    // Validate domain
     if domain.is_empty() || domain.contains(' ') {
         return Err("Invalid domain name".to_string());
     }
 
-    // Validate IP
     if !is_valid_ip(ip) {
         return Err("Invalid IP address".to_string());
     }
 
-    // Check if already sinkholed
     if is_domain_sinkholed(domain)? {
-        return Ok(()); // Already sinkholed, nothing to do
+        return Ok(());
     }
 
-    // Append to hosts file
     let mut file = OpenOptions::new()
         .append(true)
         .open(HOSTS_FILE_PATH)
@@ -51,9 +45,7 @@ pub fn sinkhole_domain_to_ip(domain: &str, ip: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Remove domain from DNS sinkhole
 pub fn unsinkhole_domain(domain: &str) -> Result<(), String> {
-    // Read hosts file
     let file = File::open(HOSTS_FILE_PATH)
         .map_err(|e| format!("Failed to open hosts file: {}", e))?;
     let reader = BufReader::new(file);
@@ -64,7 +56,6 @@ pub fn unsinkhole_domain(domain: &str) -> Result<(), String> {
     for line in reader.lines() {
         let line = line.map_err(|e| format!("Failed to read line: {}", e))?;
 
-        // Skip lines that contain this domain with NOSP marker
         if line.contains(domain) && line.contains(NOSP_MARKER) {
             removed = true;
             continue;
@@ -77,7 +68,6 @@ pub fn unsinkhole_domain(domain: &str) -> Result<(), String> {
         return Err("Domain not found in sinkhole".to_string());
     }
 
-    // Write back to hosts file
     let mut file = OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -91,7 +81,6 @@ pub fn unsinkhole_domain(domain: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Check if domain is currently sinkholed
 pub fn is_domain_sinkholed(domain: &str) -> Result<bool, String> {
     let file = File::open(HOSTS_FILE_PATH)
         .map_err(|e| format!("Failed to open hosts file: {}", e))?;
@@ -108,7 +97,6 @@ pub fn is_domain_sinkholed(domain: &str) -> Result<bool, String> {
     Ok(false)
 }
 
-/// List all sinkholed domains
 pub fn list_sinkholed_domains() -> Result<Vec<SinkholeEntry>, String> {
     let file = File::open(HOSTS_FILE_PATH)
         .map_err(|e| format!("Failed to open hosts file: {}", e))?;
@@ -119,7 +107,6 @@ pub fn list_sinkholed_domains() -> Result<Vec<SinkholeEntry>, String> {
     for line in reader.lines() {
         if let Ok(line) = line {
             if line.contains(NOSP_MARKER) {
-                // Parse line: "IP domain # NOSP DNS Sinkhole Entry"
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 2 {
                     entries.push(SinkholeEntry {
@@ -135,7 +122,6 @@ pub fn list_sinkholed_domains() -> Result<Vec<SinkholeEntry>, String> {
     Ok(entries)
 }
 
-/// Sinkhole multiple domains from IOC list
 pub fn sinkhole_ioc_list(domains: &[String]) -> Result<usize, String> {
     let mut success_count = 0;
 
@@ -148,9 +134,7 @@ pub fn sinkhole_ioc_list(domains: &[String]) -> Result<usize, String> {
     Ok(success_count)
 }
 
-/// Clear all NOSP sinkhole entries
 pub fn clear_all_sinkholes() -> Result<usize, String> {
-    // Read hosts file
     let file = File::open(HOSTS_FILE_PATH)
         .map_err(|e| format!("Failed to open hosts file: {}", e))?;
     let reader = BufReader::new(file);
@@ -161,7 +145,6 @@ pub fn clear_all_sinkholes() -> Result<usize, String> {
     for line in reader.lines() {
         let line = line.map_err(|e| format!("Failed to read line: {}", e))?;
 
-        // Skip NOSP sinkhole entries
         if line.contains(NOSP_MARKER) {
             removed_count += 1;
             continue;
@@ -170,7 +153,6 @@ pub fn clear_all_sinkholes() -> Result<usize, String> {
         lines.push(line);
     }
 
-    // Write back to hosts file
     let mut file = OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -184,7 +166,6 @@ pub fn clear_all_sinkholes() -> Result<usize, String> {
     Ok(removed_count)
 }
 
-/// Validate IP address format
 fn is_valid_ip(ip: &str) -> bool {
     let parts: Vec<&str> = ip.split('.').collect();
     if parts.len() != 4 {
@@ -204,7 +185,6 @@ fn is_valid_ip(ip: &str) -> bool {
     true
 }
 
-/// Sinkhole common malware C2 domains (pre-defined list)
 pub fn sinkhole_common_c2_domains() -> Result<usize, String> {
     let c2_domains = vec![
         "evil.com",
@@ -212,7 +192,6 @@ pub fn sinkhole_common_c2_domains() -> Result<usize, String> {
         "ransomware.xyz",
         "phishing-site.com",
         "trojan-server.org",
-        // Add more known C2 domains
     ];
 
     let mut count = 0;
@@ -239,7 +218,6 @@ mod tests {
 
     #[test]
     fn test_list_sinkholed() {
-        // This test requires Administrator privileges
         let result = list_sinkholed_domains();
         assert!(result.is_ok());
     }

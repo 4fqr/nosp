@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 NOSP EVENT HORIZON - The Cage (Zero-Trust Sandbox)
 ===================================================
@@ -50,7 +50,6 @@ from datetime import datetime
 from pathlib import Path
 import logging
 
-# Windows-specific imports (conditionally)
 if sys.platform == 'win32':
     import win32api
     import win32con
@@ -131,7 +130,6 @@ class Cage:
         self.cage_dir = Path(tempfile.gettempdir()) / "nosp_cage"
         self.cage_dir.mkdir(exist_ok=True)
         
-        # Monitoring state
         self.behaviors: List[BehaviorEvent] = []
         self.process: Optional[psutil.Process] = None
         self.process_tree: List[psutil.Process] = []
@@ -164,12 +162,10 @@ class Cage:
         Returns:
             Path to file inside cage
         """
-        # Create unique cage subdirectory
         cage_id = hashlib.md5(f"{file_path}{time.time()}".encode()).hexdigest()[:8]
         execution_dir = self.cage_dir / cage_id
         execution_dir.mkdir(exist_ok=True)
         
-        # Copy file to cage
         file_name = Path(file_path).name
         caged_file = execution_dir / file_name
         shutil.copy2(file_path, caged_file)
@@ -188,16 +184,13 @@ class Cage:
             self.process = psutil.Process(pid)
             start_time = time.time()
             
-            # Track initial state
             initial_handles = len(self.process.open_files())
             initial_threads = self.process.num_threads()
             
             while self.process.is_running() and (time.time() - start_time) < self.execution_timeout:
-                # Monitor file access
                 try:
                     open_files = self.process.open_files()
                     for file in open_files:
-                        # Check if accessing sensitive locations
                         if self._is_sensitive_path(file.path):
                             self._log_behavior(
                                 "file_access",
@@ -207,7 +200,6 @@ class Cage:
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
                     pass
                 
-                # Monitor child processes
                 try:
                     children = self.process.children(recursive=True)
                     for child in children:
@@ -221,7 +213,6 @@ class Cage:
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
                     pass
                 
-                # Monitor network connections
                 try:
                     connections = self.process.connections()
                     for conn in connections:
@@ -237,7 +228,6 @@ class Cage:
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
                     pass
                 
-                # Monitor thread count (code injection indicator)
                 try:
                     current_threads = self.process.num_threads()
                     if current_threads > initial_threads + 5:
@@ -246,11 +236,11 @@ class Cage:
                             {"thread_count": current_threads},
                             risk_contribution=25
                         )
-                        initial_threads = current_threads  # Update baseline
+                        initial_threads = current_threads
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
                     pass
                 
-                time.sleep(0.5)  # Poll every 500ms
+                time.sleep(0.5)
                 
         except psutil.NoSuchProcess:
             logger.debug("Process terminated during monitoring")
@@ -307,21 +297,16 @@ class Cage:
         if not self.behaviors:
             return 0
         
-        # Sum risk contributions
         total_risk = sum(b.risk_contribution for b in self.behaviors)
         
-        # Apply multipliers for specific combinations
         behavior_types = set(b.event_type for b in self.behaviors)
         
-        # Network + file access = likely C2 communication
         if 'network_connection' in behavior_types and 'file_access' in behavior_types:
             total_risk += 20
         
-        # Child processes + thread injection = process hollowing indicator
         if 'child_process' in behavior_types and 'thread_injection' in behavior_types:
             total_risk += 30
         
-        # Cap at 100
         return min(total_risk, 100)
     
     def _determine_verdict(self, risk_score: int) -> str:
@@ -373,17 +358,13 @@ class Cage:
         
         logger.info(f"Detonating file: {file_path}")
         
-        # Calculate file hash
         file_hash = self._calculate_file_hash(file_path)
         
-        # Setup cage
         caged_file = self._setup_cage_environment(file_path)
         
-        # Reset behavior tracking
         self.behaviors = []
         self.process_tree = []
         
-        # Launch process in suspended state (Windows-specific)
         start_time = time.time()
         stdout_capture = ""
         stderr_capture = ""
@@ -391,9 +372,7 @@ class Cage:
         was_terminated = False
         
         try:
-            # Launch process
             if sys.platform == 'win32':
-                # Use subprocess with CREATE_SUSPENDED flag
                 process = subprocess.Popen(
                     [str(caged_file)],
                     cwd=str(caged_file.parent),
@@ -402,7 +381,6 @@ class Cage:
                     creationflags=subprocess.CREATE_NEW_CONSOLE
                 )
             else:
-                # Unix-like systems
                 process = subprocess.Popen(
                     [str(caged_file)],
                     cwd=str(caged_file.parent),
@@ -410,7 +388,6 @@ class Cage:
                     stderr=subprocess.PIPE
                 )
             
-            # Start behavior monitoring in background thread
             monitor_thread = threading.Thread(
                 target=self._monitor_process_behavior,
                 args=(process.pid,),
@@ -418,18 +395,15 @@ class Cage:
             )
             monitor_thread.start()
             
-            # Wait for timeout or completion
             try:
                 stdout_data, stderr_data = process.communicate(timeout=self.execution_timeout)
                 stdout_capture = stdout_data.decode('utf-8', errors='ignore')
                 stderr_capture = stderr_data.decode('utf-8', errors='ignore')
                 exit_code = process.returncode
             except subprocess.TimeoutExpired:
-                # Force termination
                 logger.warning(f"Process exceeded timeout, terminating...")
                 process.kill()
                 
-                # Kill entire process tree
                 try:
                     if self.process:
                         for child in self.process.children(recursive=True):
@@ -443,7 +417,6 @@ class Cage:
                 
                 was_terminated = True
                 
-                # Collect partial output
                 try:
                     stdout_data, stderr_data = process.communicate(timeout=1)
                     stdout_capture = stdout_data.decode('utf-8', errors='ignore')
@@ -451,21 +424,17 @@ class Cage:
                 except:
                     pass
             
-            # Wait for monitoring thread to finish
             monitor_thread.join(timeout=2)
             
         except Exception as e:
             logger.error(f"Detonation error: {e}")
             self._log_behavior("execution_error", {"error": str(e)}, risk_contribution=5)
         
-        # Calculate execution time
         execution_time = time.time() - start_time
         
-        # Calculate risk score
         risk_score = self._calculate_risk_score()
         verdict = self._determine_verdict(risk_score)
         
-        # Create result
         result = SandboxResult(
             file_path=file_path,
             file_hash=file_hash,
@@ -475,11 +444,10 @@ class Cage:
             behaviors=self.behaviors.copy(),
             risk_score=risk_score,
             verdict=verdict,
-            stdout=stdout_capture[:1000],  # Limit output size
+            stdout=stdout_capture[:1000],
             stderr=stderr_capture[:1000]
         )
         
-        # Cleanup
         self._cleanup_cage(caged_file.parent)
         
         logger.info(f"Detonation complete: {verdict} (risk: {risk_score}/100)")
@@ -496,12 +464,10 @@ class Cage:
         Returns:
             SandboxResult with analysis
         """
-        # Create temporary script file
         cage_id = hashlib.md5(f"{command}{time.time()}".encode()).hexdigest()[:8]
         execution_dir = self.cage_dir / cage_id
         execution_dir.mkdir(exist_ok=True)
         
-        # Create batch/shell script
         if sys.platform == 'win32':
             script_path = execution_dir / "script.bat"
             script_content = f"{command} {' '.join(args or [])}"
@@ -511,17 +477,14 @@ class Cage:
         
         script_path.write_text(script_content)
         
-        # Make executable (Unix)
         if sys.platform != 'win32':
             os.chmod(script_path, 0o755)
         
-        # Detonate script
         result = self.detonate_file(str(script_path))
         
         return result
 
 
-# Singleton instance
 _cage_instance: Optional[Cage] = None
 
 
@@ -538,7 +501,6 @@ def get_cage() -> Cage:
     return _cage_instance
 
 
-# Demo
 if __name__ == "__main__":
     print("NOSP EVENT HORIZON - The Cage Demo")
     print("=" * 60)
@@ -546,7 +508,6 @@ if __name__ == "__main__":
     cage = Cage(execution_timeout=10)
     
     print("\nCreating test file...")
-    # Create a test "malicious" script
     test_dir = Path(tempfile.gettempdir()) / "nosp_test"
     test_dir.mkdir(exist_ok=True)
     
@@ -564,7 +525,7 @@ ping -n 1 8.8.8.8
 """)
     else:
         test_file = test_dir / "test_malware.sh"
-        test_file.write_text("""#!/bin/bash
+        test_file.write_text("""
 echo "Malicious behavior simulation"
 sleep 3
 echo "Creating file in temp"
@@ -607,7 +568,6 @@ ping -c 1 8.8.8.8
         print(f"Error: {e}")
     
     finally:
-        # Cleanup test file
         shutil.rmtree(test_dir)
         print(f"\n{'=' * 60}")
         print("Demo complete")

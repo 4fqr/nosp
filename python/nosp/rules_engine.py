@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class RuleCondition:
     """Represents a single condition in a rule"""
     field: str
-    operator: str  # eq, ne, contains, regex, gt, lt
+    operator: str
     value: Any
     
     def evaluate(self, event: Dict[str, Any]) -> bool:
@@ -57,10 +57,10 @@ class Rule:
     name: str
     description: str
     enabled: bool
-    severity: str  # critical, high, medium, low
+    severity: str
     conditions: List[RuleCondition]
     logic: str  # "and" or "or"
-    actions: List[str]  # kill, suspend, quarantine, alert, block_ip
+    actions: List[str]
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def matches(self, event: Dict[str, Any]) -> bool:
@@ -114,7 +114,6 @@ class RulesEngine:
             "actions_executed": 0
         }
         
-        # Initialize
         self.load_rules()
     
     def load_rules(self) -> bool:
@@ -136,7 +135,6 @@ class RulesEngine:
             
             for rule_data in data['rules']:
                 try:
-                    # Parse conditions
                     conditions = []
                     for cond_data in rule_data.get('conditions', []):
                         conditions.append(RuleCondition(
@@ -145,7 +143,6 @@ class RulesEngine:
                             value=cond_data['value']
                         ))
                     
-                    # Create rule
                     rule = Rule(
                         name=rule_data['name'],
                         description=rule_data.get('description', ''),
@@ -163,7 +160,6 @@ class RulesEngine:
                     logger.error(f"Error parsing rule: {e}")
                     continue
             
-            # Sort rules by priority (critical first)
             self.rules.sort(key=lambda r: r.get_priority())
             
             self.stats['rules_loaded'] = len(self.rules)
@@ -226,7 +222,6 @@ class RulesEngine:
         for match in matches:
             for action in match['actions']:
                 try:
-                    # Check if handler is registered
                     if action not in self.action_handlers:
                         logger.warning(f"No handler registered for action: {action}")
                         results['skipped'].append({
@@ -236,7 +231,6 @@ class RulesEngine:
                         })
                         continue
                     
-                    # Execute action
                     handler = self.action_handlers[action]
                     success = handler(event, match)
                     
@@ -381,7 +375,6 @@ class RulesEngine:
             logger.error(f"Failed to create default rules: {e}")
 
 
-# Convenience function
 def create_rules_engine(rules_file: str = "rules.yaml") -> RulesEngine:
     """Create and initialize a rules engine"""
     return RulesEngine(rules_file)

@@ -6,7 +6,7 @@ Execute system commands directly from the NOSP interface
 import subprocess
 import logging
 import re
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 from datetime import datetime
 from pathlib import Path
 import shlex
@@ -17,15 +17,13 @@ logger = logging.getLogger(__name__)
 class CommandSanitizer:
     """Sanitizes and validates commands for safe execution"""
     
-    # Dangerous commands that should be blocked
     BLACKLIST = {
         'format', 'del', 'rd', 'rmdir', 'deltree',
         'shutdown', 'restart', 'reboot',
         'reg delete', 'wmic',
-        'taskkill /f',  # Allow regular taskkill but not force
+        'taskkill /f',
     }
     
-    # Commands that require explicit confirmation
     REQUIRE_CONFIRMATION = {
         'taskkill', 'net stop', 'net start',
         'sc stop', 'sc delete'
@@ -41,18 +39,15 @@ class CommandSanitizer:
         """
         cmd_lower = command.lower().strip()
         
-        # Check blacklist
         for dangerous in CommandSanitizer.BLACKLIST:
             if dangerous in cmd_lower:
                 return False, f"Blocked dangerous command: {dangerous}"
         
-        # Check for command injection attempts
         suspicious_chars = ['&', '|', ';', '`', '$', '(', ')']
         for char in suspicious_chars:
-            if char in command and char != '|':  # Allow pipes
+            if char in command and char != '|':
                 return False, f"Suspicious character detected: {char}"
         
-        # Check for path traversal
         if '..' in command or '~' in command:
             return False, "Path traversal detected"
         
@@ -100,7 +95,6 @@ class TerminalSession:
         """
         timestamp = datetime.now().isoformat()
         
-        # Sanitize command
         is_safe, reason = CommandSanitizer.is_safe(command)
         if not is_safe:
             result = {
@@ -115,15 +109,12 @@ class TerminalSession:
             self._add_to_history(result)
             return result
         
-        # Execute command
         start_time = datetime.now()
         
         try:
             if self.shell == "powershell":
-                # PowerShell execution
                 full_command = ["powershell", "-Command", command]
             else:
-                # CMD execution
                 full_command = ["cmd", "/c", command]
             
             proc = subprocess.run(
@@ -170,7 +161,6 @@ class TerminalSession:
                 'duration': duration
             }
         
-        # Add to history
         self._add_to_history(result)
         
         logger.info(f"Executed: {command} (success: {result['success']})")
@@ -180,7 +170,6 @@ class TerminalSession:
         """Add command result to history"""
         self.history.append(result)
         
-        # Trim history if needed
         if len(self.history) > self.max_history:
             self.history.pop(0)
     
@@ -238,7 +227,6 @@ class TerminalSession:
         return [cmd for cmd in common_commands if cmd.lower().startswith(partial_lower)]
 
 
-# Pre-defined command templates for common tasks
 COMMAND_TEMPLATES = {
     'Network Diagnostics': {
         'Ping Google': 'ping google.com -n 4',

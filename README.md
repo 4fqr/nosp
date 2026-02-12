@@ -27,7 +27,7 @@ NOSP is a threat detection system combining kernel-level event monitoring with A
 
 ## Requirements
 
-- Windows 10/11 (Administrator privileges)
+- **Windows 10/11** (Administrator privileges) or **Linux** (Debian/Ubuntu with root for full features)
 - Python 3.8+
 - Rust 1.70+ (if building from source)
 
@@ -41,16 +41,21 @@ setup.bat
 
 This installs Python dependencies, compiles Rust modules, and configures the database.
 
+### Automated Setup (Linux - Debian/Ubuntu)
+
+```bash
+sudo ./setup_linux.sh
+```
+
+This installs system dependencies, Python packages, and configures monitoring capabilities.
+
 ### Manual Setup
 
 ```bash
-# Install Python dependencies
 pip install -r requirements.txt
 
-# Build Rust module
 cargo build --release
 
-# Initialize database
 python main.py --init-db
 ```
 
@@ -58,11 +63,17 @@ python main.py --init-db
 
 ### Launch NOSP
 
+**Windows:**
 ```cmd
 run_nosp.bat
 ```
 
-Or manually:
+**Linux:**
+```bash
+sudo ./run_nosp_linux.sh
+```
+
+**Or manually:**
 
 ```bash
 python main.py
@@ -154,13 +165,34 @@ NOSP/
 
 ## Troubleshooting
 
-**ETW events not captured**: Run as Administrator
+**Windows: ETW events not captured**: Run as Administrator
+
+**Linux: Limited monitoring**: Run with `sudo` for full capabilities
 
 **AI returns "Model not ready"**: Install Ollama and run `ollama pull mistral`
 
 **Database errors**: Delete `nosp.db` and restart
 
-**Rust import fails**: Rebuild with `cargo build --release`
+**Rust import fails**: Rebuild with `cargo build --release` or `maturin develop`
+
+## Platform Compatibility
+
+### Windows (Full Support)
+- ETW event tracing
+- Registry monitoring
+- USB device control
+- Memory forensics
+- All features available
+
+### Linux (Debian/Ubuntu)
+- Process monitoring via auditd/psutil
+- USB device enumeration via pyudev
+- Network capture via netfilterqueue
+- File integrity monitoring
+- AI threat analysis
+- Web dashboard
+
+**Note**: Windows-specific features (ETW, Registry) are not available on Linux but gracefully degrade.
 
 ## Performance
 

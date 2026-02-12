@@ -1,6 +1,4 @@
 #!/bin/bash
-# NOSP Build and Setup Script for Linux/WSL
-# This script automates the complete setup process
 
 echo "==============================================="
 echo "   NOSP - Null OS Security Program"
@@ -8,7 +6,6 @@ echo "   Build and Setup Script"
 echo "==============================================="
 echo ""
 
-# Check for Python
 if ! command -v python3 &> /dev/null; then
     echo "[ERROR] Python3 is not installed"
     echo "Please install Python 3.8+ from your package manager"
@@ -16,7 +13,6 @@ if ! command -v python3 &> /dev/null; then
 fi
 echo "[OK] Python is installed"
 
-# Check for Rust
 if ! command -v rustc &> /dev/null; then
     echo "[WARNING] Rust is not installed"
     echo "NOSP will run in limited mode without real-time monitoring"
@@ -50,10 +46,8 @@ if [ $RUST_AVAILABLE -eq 1 ]; then
     echo "==============================================="
     echo ""
     
-    # Install maturin if not present
     pip3 install maturin
     
-    # Build the Rust extension
     maturin develop --release
     
     if [ $? -ne 0 ]; then

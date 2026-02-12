@@ -42,7 +42,6 @@ pub enum ChangeType {
 }
 
 impl FIMDatabase {
-    /// Create new FIM database
     pub fn new() -> Self {
         FIMDatabase {
             snapshots: HashMap::new(),
@@ -53,7 +52,6 @@ impl FIMDatabase {
         }
     }
 
-    /// Load database from file
     pub fn load(path: &str) -> Result<Self, String> {
         let mut file = File::open(path)
             .map_err(|e| format!("Failed to open FIM database: {}", e))?;
@@ -66,7 +64,6 @@ impl FIMDatabase {
             .map_err(|e| format!("Failed to parse FIM database: {}", e))
     }
 
-    /// Save database to file
     pub fn save(&self, path: &str) -> Result<(), String> {
         use std::io::Write;
 
@@ -82,27 +79,22 @@ impl FIMDatabase {
         Ok(())
     }
 
-    /// Add file to monitoring
     pub fn add_file(&mut self, path: &str) -> Result<(), String> {
         let snapshot = create_file_snapshot(path)?;
         self.snapshots.insert(path.to_string(), snapshot);
         Ok(())
     }
 
-    /// Remove file from monitoring
     pub fn remove_file(&mut self, path: &str) {
         self.snapshots.remove(path);
     }
 
-    /// Check for changes (returns list of changed files)
     pub fn check_changes(&mut self) -> Result<Vec<FileChange>, String> {
         let mut changes = Vec::new();
         let mut to_remove = Vec::new();
 
-        // Check existing files for modifications
         for (path, old_snapshot) in &self.snapshots {
             if !Path::new(path).exists() {
-                // File deleted
                 changes.push(FileChange {
                     path: path.clone(),
                     change_type: ChangeType::Deleted,
@@ -111,7 +103,6 @@ impl FIMDatabase {
                 });
                 to_remove.push(path.clone());
             } else {
-                // Check if modified
                 match create_file_snapshot(path) {
                     Ok(new_snapshot) => {
                         if new_snapshot.hash != old_snapshot.hash {
@@ -121,19 +112,16 @@ impl FIMDatabase {
                                 old_hash: Some(old_snapshot.hash.clone()),
                                 new_hash: Some(new_snapshot.hash.clone()),
                             });
-                            // Update snapshot
                             self.snapshots.insert(path.clone(), new_snapshot);
                         }
                     }
                     Err(_) => {
-                        // File may have been deleted or inaccessible
                         to_remove.push(path.clone());
                     }
                 }
             }
         }
 
-        // Remove deleted files
         for path in to_remove {
             self.snapshots.remove(&path);
         }
@@ -147,7 +135,6 @@ impl FIMDatabase {
     }
 }
 
-/// Create file snapshot with hash
 fn create_file_snapshot(path: &str) -> Result<FileSnapshot, String> {
     let metadata = metadata(path)
         .map_err(|e| format!("Failed to get file metadata: {}", e))?;
@@ -160,7 +147,6 @@ fn create_file_snapshot(path: &str) -> Result<FileSnapshot, String> {
         .unwrap()
         .as_secs();
 
-    // Calculate SHA-256 hash
     let hash = calculate_file_hash_sha256(path)?;
 
     Ok(FileSnapshot {
@@ -171,7 +157,6 @@ fn create_file_snapshot(path: &str) -> Result<FileSnapshot, String> {
     })
 }
 
-/// Calculate SHA-256 hash of file
 fn calculate_file_hash_sha256(path: &str) -> Result<String, String> {
     let mut file = File::open(path)
         .map_err(|e| format!("Failed to open file: {}", e))?;
@@ -194,7 +179,6 @@ fn calculate_file_hash_sha256(path: &str) -> Result<String, String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-/// Monitor directory recursively
 pub fn monitor_directory(dir_path: &str, db: &mut FIMDatabase) -> Result<usize, String> {
     let mut file_count = 0;
 
@@ -213,7 +197,6 @@ pub fn monitor_directory(dir_path: &str, db: &mut FIMDatabase) -> Result<usize, 
     Ok(file_count)
 }
 
-/// Monitor critical Windows system directories
 pub fn monitor_critical_directories(db: &mut FIMDatabase) -> Result<usize, String> {
     let critical_dirs = vec![
         "C:\\Windows\\System32",
@@ -236,7 +219,6 @@ pub fn monitor_critical_directories(db: &mut FIMDatabase) -> Result<usize, Strin
     Ok(total_files)
 }
 
-/// Monitor directory with file extension filter
 pub fn monitor_directory_selective(
     dir_path: &str,
     db: &mut FIMDatabase,
@@ -245,14 +227,13 @@ pub fn monitor_directory_selective(
     let mut file_count = 0;
 
     for entry in WalkDir::new(dir_path)
-        .max_depth(3) // Limit depth for performance
+        .max_depth(3)
         .into_iter()
         .filter_map(|e| e.ok())
     {
         if entry.file_type().is_file() {
             let path = entry.path();
 
-            // Check extension filter
             if let Some(ext_list) = extensions {
                 if let Some(ext) = path.extension() {
                     if !ext_list.contains(&ext.to_str().unwrap_or("")) {
@@ -273,7 +254,6 @@ pub fn monitor_directory_selective(
     Ok(file_count)
 }
 
-/// Quick scan for ransomware indicators (file extension changes)
 pub fn scan_for_ransomware_extensions(dir_path: &str) -> Result<Vec<String>, String> {
     let ransomware_extensions = vec![
         "encrypted", "locked", "crypted", "crypto", "cerber", "locky",
@@ -311,7 +291,6 @@ mod tests {
 
     #[test]
     fn test_file_hash() {
-        // Create a test file
         use std::io::Write;
         let mut file = File::create("test_fim.txt").unwrap();
         file.write_all(b"test content").unwrap();
@@ -319,7 +298,6 @@ mod tests {
         let hash = calculate_file_hash_sha256("test_fim.txt");
         assert!(hash.is_ok());
 
-        // Cleanup
         std::fs::remove_file("test_fim.txt").ok();
     }
 }
