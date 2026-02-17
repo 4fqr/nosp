@@ -13,6 +13,19 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.20", features = ["extension-module", "abi3-py38"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+chrono = "0.4"
+thiserror = "1.0"
+sha2 = "0.10"
+zip = "0.6"
+walkdir = "2.4"
+log = "0.4"
+aes = "0.8"
+hex = "0.4"
+rand = "0.8"
+regex = "1.10"
+once_cell = "1.19"
+
+[target.'cfg(windows)'.dependencies]
 windows = { version = "0.52", features = [
     "Win32_Foundation",
     "Win32_System_EventLog",
@@ -27,19 +40,11 @@ windows = { version = "0.52", features = [
     "Win32_Security_Cryptography",
     "Win32_System_SystemInformation",
 ] }
-chrono = "0.4"
-thiserror = "1.0"
-sha2 = "0.10"
-zip = "0.6"
-walkdir = "2.4"
 winapi = { version = "0.3", features = ["winuser", "wincon", "processthreadsapi", "memoryapi", "handleapi", "cfgmgr32", "setupapi", "winreg", "winsock2", "ws2def", "ws2ipdef"] }
-log = "0.4"
-aes = "0.8"
-hex = "0.4"
-rand = "0.8"
-regex = "1.10"
 clipboard-win = "5.0"
-once_cell = "1.19"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
 
 [profile.release]
 opt-level = 3

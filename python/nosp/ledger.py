@@ -21,16 +21,16 @@ Author: NOSP Team
 Contact: 4fqr5@atomicmail.io
 """
 
-import hashlib
-import json
-import time
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict
-from datetime import datetime
+import hashlib 
+import json 
+import time 
+from typing import Dict ,List ,Optional ,Tuple 
+from dataclasses import dataclass ,asdict 
+from datetime import datetime 
 
 
-@dataclass
-class Block:
+@dataclass 
+class Block :
     """
     A single block in the security audit ledger.
     
@@ -42,15 +42,15 @@ class Block:
         nonce: Proof-of-work nonce (difficulty=2 for speed)
         hash: SHA-256 hash of this block
     """
-    index: int
-    timestamp: float
-    event_data: Dict
-    previous_hash: str
-    nonce: int = 0
-    hash: str = ""
+    index :int 
+    timestamp :float 
+    event_data :Dict 
+    previous_hash :str 
+    nonce :int =0 
+    hash :str =""
 
 
-class ImmutableLedger:
+class ImmutableLedger :
     """
     Blockchain-based audit ledger for security events.
     
@@ -60,8 +60,8 @@ class ImmutableLedger:
     - Lightweight (metadata only, ~500 bytes/block)
     - Tamper detection via hash verification
     """
-    
-    def __init__(self, difficulty: int = 2):
+
+    def __init__ (self ,difficulty :int =2 ):
         """
         Initialize blockchain ledger.
         
@@ -69,35 +69,35 @@ class ImmutableLedger:
             difficulty: Mining difficulty (leading zeros in hash)
                        Default=2 for balance between security and speed
         """
-        self.chain: List[Block] = []
-        self.difficulty = difficulty
-        self.difficulty_target = "0" * difficulty
-        
-        self._create_genesis_block()
-    
-    def _create_genesis_block(self) -> None:
+        self .chain :List [Block ]=[]
+        self .difficulty =difficulty 
+        self .difficulty_target ="0"*difficulty 
+
+        self ._create_genesis_block ()
+
+    def _create_genesis_block (self )->None :
         """
         Create the first block in the chain with hardcoded values.
         Genesis block has no previous hash (uses "0").
         """
-        genesis_data = {
-            "event_type": "GENESIS",
-            "message": "NOSP EVENT HORIZON Ledger Initialized",
-            "version": "1.0.0-EVENT-HORIZON"
+        genesis_data ={
+        "event_type":"GENESIS",
+        "message":"NOSP EVENT HORIZON Ledger Initialized",
+        "version":"1.0.0-EVENT-HORIZON"
         }
-        
-        genesis_block = Block(
-            index=0,
-            timestamp=time.time(),
-            event_data=genesis_data,
-            previous_hash="0" * 64,
-            nonce=0
+
+        genesis_block =Block (
+        index =0 ,
+        timestamp =time .time (),
+        event_data =genesis_data ,
+        previous_hash ="0"*64 ,
+        nonce =0 
         )
-        
-        genesis_block.hash = self._mine_block(genesis_block)
-        self.chain.append(genesis_block)
-    
-    def _calculate_hash(self, block: Block) -> str:
+
+        genesis_block .hash =self ._mine_block (genesis_block )
+        self .chain .append (genesis_block )
+
+    def _calculate_hash (self ,block :Block )->str :
         """
         Calculate SHA-256 hash of a block.
         
@@ -109,17 +109,17 @@ class ImmutableLedger:
         Returns:
             64-character hexadecimal SHA-256 hash
         """
-        block_string = json.dumps({
-            "index": block.index,
-            "timestamp": block.timestamp,
-            "event_data": block.event_data,
-            "previous_hash": block.previous_hash,
-            "nonce": block.nonce
-        }, sort_keys=True)
-        
-        return hashlib.sha256(block_string.encode()).hexdigest()
-    
-    def _mine_block(self, block: Block) -> str:
+        block_string =json .dumps ({
+        "index":block .index ,
+        "timestamp":block .timestamp ,
+        "event_data":block .event_data ,
+        "previous_hash":block .previous_hash ,
+        "nonce":block .nonce 
+        },sort_keys =True )
+
+        return hashlib .sha256 (block_string .encode ()).hexdigest ()
+
+    def _mine_block (self ,block :Block )->str :
         """
         Proof-of-work mining: find nonce where hash starts with N zeros.
         
@@ -132,15 +132,15 @@ class ImmutableLedger:
         Returns:
             Valid hash meeting difficulty target
         """
-        while True:
-            block_hash = self._calculate_hash(block)
-            
-            if block_hash.startswith(self.difficulty_target):
-                return block_hash
-            
-            block.nonce += 1
-    
-    def add_event(self, event_data: Dict) -> Block:
+        while True :
+            block_hash =self ._calculate_hash (block )
+
+            if block_hash .startswith (self .difficulty_target ):
+                return block_hash 
+
+            block .nonce +=1 
+
+    def add_event (self ,event_data :Dict )->Block :
         """
         Add a new security event to the blockchain ledger.
         
@@ -160,28 +160,28 @@ class ImmutableLedger:
         Raises:
             ValueError: If event_data is not JSON-serializable
         """
-        try:
-            json.dumps(event_data)
-        except (TypeError, ValueError) as e:
-            raise ValueError(f"Event data must be JSON-serializable: {e}")
-        
-        previous_block = self.chain[-1]
-        
-        new_block = Block(
-            index=len(self.chain),
-            timestamp=time.time(),
-            event_data=event_data,
-            previous_hash=previous_block.hash,
-            nonce=0
+        try :
+            json .dumps (event_data )
+        except (TypeError ,ValueError )as e :
+            raise ValueError (f"Event data must be JSON-serializable: {e }")
+
+        previous_block =self .chain [-1 ]
+
+        new_block =Block (
+        index =len (self .chain ),
+        timestamp =time .time (),
+        event_data =event_data ,
+        previous_hash =previous_block .hash ,
+        nonce =0 
         )
-        
-        new_block.hash = self._mine_block(new_block)
-        
-        self.chain.append(new_block)
-        
-        return new_block
-    
-    def validate_chain(self) -> Tuple[bool, Optional[str]]:
+
+        new_block .hash =self ._mine_block (new_block )
+
+        self .chain .append (new_block )
+
+        return new_block 
+
+    def validate_chain (self )->Tuple [bool ,Optional [str ]]:
         """
         Validate entire blockchain for tampering.
         
@@ -196,36 +196,36 @@ class ImmutableLedger:
             - (True, None) if chain is intact
             - (False, "error description") if tampering detected
         """
-        if len(self.chain) == 0:
-            return False, "Chain is empty (no genesis block)"
-        
-        genesis = self.chain[0]
-        if genesis.index != 0:
-            return False, "Genesis block index is not 0"
-        
-        if genesis.previous_hash != "0" * 64:
-            return False, "Genesis block previous_hash is invalid"
-        
-        for i in range(1, len(self.chain)):
-            current_block = self.chain[i]
-            previous_block = self.chain[i - 1]
-            
-            if current_block.index != i:
-                return False, f"Block {i}: Index mismatch (expected {i}, got {current_block.index})"
-            
-            if current_block.previous_hash != previous_block.hash:
-                return False, f"Block {i}: Previous hash mismatch (chain broken)"
-            
-            recomputed_hash = self._calculate_hash(current_block)
-            if current_block.hash != recomputed_hash:
-                return False, f"Block {i}: Hash tampering detected (stored != computed)"
-            
-            if not current_block.hash.startswith(self.difficulty_target):
-                return False, f"Block {i}: Invalid proof-of-work (hash doesn't meet difficulty)"
-        
-        return True, None
-    
-    def get_chain_summary(self) -> Dict:
+        if len (self .chain )==0 :
+            return False ,"Chain is empty (no genesis block)"
+
+        genesis =self .chain [0 ]
+        if genesis .index !=0 :
+            return False ,"Genesis block index is not 0"
+
+        if genesis .previous_hash !="0"*64 :
+            return False ,"Genesis block previous_hash is invalid"
+
+        for i in range (1 ,len (self .chain )):
+            current_block =self .chain [i ]
+            previous_block =self .chain [i -1 ]
+
+            if current_block .index !=i :
+                return False ,f"Block {i }: Index mismatch (expected {i }, got {current_block .index })"
+
+            if current_block .previous_hash !=previous_block .hash :
+                return False ,f"Block {i }: Previous hash mismatch (chain broken)"
+
+            recomputed_hash =self ._calculate_hash (current_block )
+            if current_block .hash !=recomputed_hash :
+                return False ,f"Block {i }: Hash tampering detected (stored != computed)"
+
+            if not current_block .hash .startswith (self .difficulty_target ):
+                return False ,f"Block {i }: Invalid proof-of-work (hash doesn't meet difficulty)"
+
+        return True ,None 
+
+    def get_chain_summary (self )->Dict :
         """
         Get blockchain statistics.
         
@@ -237,18 +237,18 @@ class ImmutableLedger:
             - difficulty
             - is_valid
         """
-        is_valid, error = self.validate_chain()
-        
+        is_valid ,error =self .validate_chain ()
+
         return {
-            "total_blocks": len(self.chain),
-            "genesis_time": datetime.fromtimestamp(self.chain[0].timestamp).isoformat(),
-            "latest_time": datetime.fromtimestamp(self.chain[-1].timestamp).isoformat() if self.chain else None,
-            "difficulty": self.difficulty,
-            "is_valid": is_valid,
-            "validation_error": error
+        "total_blocks":len (self .chain ),
+        "genesis_time":datetime .fromtimestamp (self .chain [0 ].timestamp ).isoformat (),
+        "latest_time":datetime .fromtimestamp (self .chain [-1 ].timestamp ).isoformat ()if self .chain else None ,
+        "difficulty":self .difficulty ,
+        "is_valid":is_valid ,
+        "validation_error":error 
         }
-    
-    def get_block(self, index: int) -> Optional[Block]:
+
+    def get_block (self ,index :int )->Optional [Block ]:
         """
         Retrieve a specific block by index.
         
@@ -258,11 +258,11 @@ class ImmutableLedger:
         Returns:
             Block if found, None otherwise
         """
-        if 0 <= index < len(self.chain):
-            return self.chain[index]
-        return None
-    
-    def get_recent_blocks(self, count: int = 10) -> List[Block]:
+        if 0 <=index <len (self .chain ):
+            return self .chain [index ]
+        return None 
+
+    def get_recent_blocks (self ,count :int =10 )->List [Block ]:
         """
         Get most recent N blocks.
         
@@ -272,18 +272,18 @@ class ImmutableLedger:
         Returns:
             List of blocks (newest first)
         """
-        return list(reversed(self.chain[-count:]))
-    
-    def export_chain(self) -> List[Dict]:
+        return list (reversed (self .chain [-count :]))
+
+    def export_chain (self )->List [Dict ]:
         """
         Export entire chain as JSON-serializable list.
         
         Returns:
             List of block dictionaries
         """
-        return [asdict(block) for block in self.chain]
-    
-    def import_chain(self, chain_data: List[Dict]) -> bool:
+        return [asdict (block )for block in self .chain ]
+
+    def import_chain (self ,chain_data :List [Dict ])->bool :
         """
         Import and validate a blockchain from JSON data.
         
@@ -293,42 +293,42 @@ class ImmutableLedger:
         Returns:
             True if import successful, False if validation fails
         """
-        try:
-            imported_chain = [Block(**block_dict) for block_dict in chain_data]
-            
-            original_chain = self.chain
-            self.chain = imported_chain
-            
-            is_valid, error = self.validate_chain()
-            
-            if not is_valid:
-                self.chain = original_chain
-                return False
-            
-            return True
-            
-        except (KeyError, TypeError, ValueError):
-            self.chain = original_chain
-            return False
+        try :
+            imported_chain =[Block (**block_dict )for block_dict in chain_data ]
+
+            original_chain =self .chain 
+            self .chain =imported_chain 
+
+            is_valid ,error =self .validate_chain ()
+
+            if not is_valid :
+                self .chain =original_chain 
+                return False 
+
+            return True 
+
+        except (KeyError ,TypeError ,ValueError ):
+            self .chain =original_chain 
+            return False 
 
 
-_ledger_instance: Optional[ImmutableLedger] = None
+_ledger_instance :Optional [ImmutableLedger ]=None 
 
 
-def get_ledger() -> ImmutableLedger:
+def get_ledger ()->ImmutableLedger :
     """
     Get global ledger instance (singleton pattern).
     
     Returns:
         Global ImmutableLedger instance
     """
-    global _ledger_instance
-    if _ledger_instance is None:
-        _ledger_instance = ImmutableLedger(difficulty=2)
-    return _ledger_instance
+    global _ledger_instance 
+    if _ledger_instance is None :
+        _ledger_instance =ImmutableLedger (difficulty =2 )
+    return _ledger_instance 
 
 
-def log_security_event(event_type: str, **kwargs) -> Block:
+def log_security_event (event_type :str ,**kwargs )->Block :
     """
     Convenience function to log security events to blockchain.
     
@@ -342,72 +342,72 @@ def log_security_event(event_type: str, **kwargs) -> Block:
     Example:
         >>> log_security_event("process_start", pid=1234, image="malware.exe", risk=85)
     """
-    ledger = get_ledger()
-    
-    event_data = {
-        "event_type": event_type,
-        "timestamp_readable": datetime.now().isoformat(),
-        **kwargs
+    ledger =get_ledger ()
+
+    event_data ={
+    "event_type":event_type ,
+    "timestamp_readable":datetime .now ().isoformat (),
+    **kwargs 
     }
-    
-    return ledger.add_event(event_data)
+
+    return ledger .add_event (event_data )
 
 
-def validate_ledger() -> Tuple[bool, Optional[str]]:
+def validate_ledger ()->Tuple [bool ,Optional [str ]]:
     """
     Validate the global ledger for tampering.
     
     Returns:
         Tuple of (is_valid, error_message)
     """
-    ledger = get_ledger()
-    return ledger.validate_chain()
+    ledger =get_ledger ()
+    return ledger .validate_chain ()
 
 
-if __name__ == "__main__":
-    print("NOSP EVENT HORIZON - Immutable Ledger Demo")
-    print("=" * 60)
-    
-    ledger = ImmutableLedger(difficulty=2)
-    print(f"\n✓ Genesis block created: {ledger.chain[0].hash[:16]}...")
-    
-    print("\nAdding security events...")
-    events = [
-        {"event_type": "process_start", "pid": 1234, "image": "powershell.exe", "risk": 65},
-        {"event_type": "network_connection", "pid": 1234, "dest_ip": "192.168.1.100", "risk": 40},
-        {"event_type": "file_create", "path": "C:\\Users\\test.exe", "risk": 85},
-        {"event_type": "registry_modify", "key": "HKLM\\Software\\Microsoft\\Windows\\Run", "risk": 75}
+if __name__ =="__main__":
+    print ("NOSP EVENT HORIZON - Immutable Ledger Demo")
+    print ("="*60 )
+
+    ledger =ImmutableLedger (difficulty =2 )
+    print (f"\n✓ Genesis block created: {ledger .chain [0 ].hash [:16 ]}...")
+
+    print ("\nAdding security events...")
+    events =[
+    {"event_type":"process_start","pid":1234 ,"image":"powershell.exe","risk":65 },
+    {"event_type":"network_connection","pid":1234 ,"dest_ip":"192.168.1.100","risk":40 },
+    {"event_type":"file_create","path":"C:\\Users\\test.exe","risk":85 },
+    {"event_type":"registry_modify","key":"HKLM\\Software\\Microsoft\\Windows\\Run","risk":75 }
     ]
-    
-    for event in events:
-        block = ledger.add_event(event)
-        print(f"  Block {block.index}: {event['event_type']} (hash: {block.hash[:16]}...)")
-    
-    print("\n" + "=" * 60)
-    print("Validating blockchain integrity...")
-    is_valid, error = ledger.validate_chain()
-    
-    if is_valid:
-        print("✓ BLOCKCHAIN INTACT - No tampering detected")
-    else:
-        print(f"✗ CRITICAL: TAMPERING DETECTED - {error}")
-    
-    summary = ledger.get_chain_summary()
-    print("\n" + "=" * 60)
-    print("Chain Summary:")
-    print(f"  Total Blocks: {summary['total_blocks']}")
-    print(f"  Difficulty: {summary['difficulty']}")
-    print(f"  Genesis: {summary['genesis_time']}")
-    print(f"  Latest: {summary['latest_time']}")
-    
-    print("\n" + "=" * 60)
-    print("Simulating attacker tampering with Block 2...")
-    ledger.chain[2].event_data["risk"] = 10
-    
-    is_valid, error = ledger.validate_chain()
-    if not is_valid:
-        print(f"✓ TAMPERING DETECTED: {error}")
-        print("   Attacker CANNOT hide their tracks!")
-    
-    print("\n" + "=" * 60)
-    print("EVENT HORIZON: Immutable Ledger Ready")
+
+    for event in events :
+        block =ledger .add_event (event )
+        print (f"  Block {block .index }: {event ['event_type']} (hash: {block .hash [:16 ]}...)")
+
+    print ("\n"+"="*60 )
+    print ("Validating blockchain integrity...")
+    is_valid ,error =ledger .validate_chain ()
+
+    if is_valid :
+        print ("✓ BLOCKCHAIN INTACT - No tampering detected")
+    else :
+        print (f"✗ CRITICAL: TAMPERING DETECTED - {error }")
+
+    summary =ledger .get_chain_summary ()
+    print ("\n"+"="*60 )
+    print ("Chain Summary:")
+    print (f"  Total Blocks: {summary ['total_blocks']}")
+    print (f"  Difficulty: {summary ['difficulty']}")
+    print (f"  Genesis: {summary ['genesis_time']}")
+    print (f"  Latest: {summary ['latest_time']}")
+
+    print ("\n"+"="*60 )
+    print ("Simulating attacker tampering with Block 2...")
+    ledger .chain [2 ].event_data ["risk"]=10 
+
+    is_valid ,error =ledger .validate_chain ()
+    if not is_valid :
+        print (f"✓ TAMPERING DETECTED: {error }")
+        print ("   Attacker CANNOT hide their tracks!")
+
+    print ("\n"+"="*60 )
+    print ("EVENT HORIZON: Immutable Ledger Ready")

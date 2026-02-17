@@ -1,12 +1,3 @@
-# NOSP vOMEGA - Security Rules Configuration
-# 
-# Syntax:
-#   conditions:
-#     - field: <event_field_name>
-#       operator: eq|ne|contains|regex|gt|lt
-#       value: <comparison_value>
-#   logic: and|or
-#   actions: [kill, suspend, quarantine, alert, block_ip]
 
 rules:
   - name: Encoded PowerShell Command

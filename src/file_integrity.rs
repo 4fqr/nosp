@@ -89,6 +89,7 @@ impl FIMDatabase {
     pub fn check_changes(&mut self) -> Result<Vec<FileChange>, String> {
         let mut changes = Vec::new();
         let mut to_remove = Vec::new();
+        let mut to_update = Vec::new();
 
         for (path, old_snapshot) in &self.snapshots {
             if !Path::new(path).exists() {
@@ -109,7 +110,7 @@ impl FIMDatabase {
                                 old_hash: Some(old_snapshot.hash.clone()),
                                 new_hash: Some(new_snapshot.hash.clone()),
                             });
-                            self.snapshots.insert(path.clone(), new_snapshot);
+                            to_update.push((path.clone(), new_snapshot));
                         }
                     }
                     Err(_) => {
@@ -121,6 +122,10 @@ impl FIMDatabase {
 
         for path in to_remove {
             self.snapshots.remove(&path);
+        }
+
+        for (path, snapshot) in to_update {
+            self.snapshots.insert(path, snapshot);
         }
 
         self.last_updated = SystemTime::now()

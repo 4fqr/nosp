@@ -6,28 +6,46 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::fs;
 use std::io::{Write, Read};
+
+#[cfg(target_os = "windows")]
 use windows::core::*;
+#[cfg(target_os = "windows")]
 use windows::Win32::Foundation::*;
+#[cfg(target_os = "windows")]
 use windows::Win32::System::EventLog::*;
+#[cfg(target_os = "windows")]
 use windows::Win32::System::Threading::*;
+#[cfg(target_os = "windows")]
 use windows::Win32::Security::*;
+#[cfg(target_os = "windows")]
 use windows::Win32::Storage::FileSystem::*;
+#[cfg(target_os = "windows")]
 use windows::Win32::System::Registry::*;
+
 use chrono::{DateTime, Utc};
 use sha2::{Sha256, Digest};
 use zip::ZipWriter;
 use zip::write::FileOptions;
 
+#[cfg(target_os = "windows")]
 mod memory_analysis;
+#[cfg(target_os = "windows")]
 mod usb_control;
+#[cfg(target_os = "windows")]
 mod dns_sinkhole;
+#[cfg(target_os = "windows")]
 mod registry_rollback;
 mod file_integrity;
+#[cfg(target_os = "windows")]
 mod omni_wrappers;
 
+#[cfg(target_os = "windows")]
 mod self_defense;
+#[cfg(target_os = "windows")]
 mod vm_detection;
+#[cfg(target_os = "windows")]
 mod clipboard_monitor;
+#[cfg(target_os = "windows")]
 mod event_horizon_wrappers;
 
 #[derive(Debug, thiserror::Error)]
@@ -139,6 +157,7 @@ fn parse_event_data(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
     })
 }
 
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn get_sysmon_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObject>> {
     let max = max_events.unwrap_or(100);
@@ -197,6 +216,7 @@ fn get_sysmon_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObje
     })
 }
 
+#[cfg(target_os = "windows")]
 unsafe fn render_event_as_xml(event_handle: HANDLE) -> Result<String, NOSPError> {
     let mut buffer_size = 0u32;
     let mut buffer_used = 0u32;
@@ -238,11 +258,20 @@ unsafe fn render_event_as_xml(event_handle: HANDLE) -> Result<String, NOSPError>
 
 #[pyfunction]
 fn is_admin() -> PyResult<bool> {
-    unsafe {
-        Ok(true)
+    #[cfg(target_os = "windows")]
+    {
+        unsafe {
+            Ok(true)
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        Ok(unsafe { libc::geteuid() } == 0)
     }
 }
 
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn terminate_process(pid: u32) -> PyResult<bool> {
     unsafe {
@@ -276,6 +305,7 @@ fn terminate_process(pid: u32) -> PyResult<bool> {
     }
 }
 
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn suspend_process(pid: u32) -> PyResult<bool> {
     unsafe {
@@ -309,6 +339,7 @@ fn suspend_process(pid: u32) -> PyResult<bool> {
     }
 }
 
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn resume_process(pid: u32) -> PyResult<bool> {
     unsafe {
@@ -386,6 +417,7 @@ fn quarantine_file(file_path: String, quarantine_dir: String) -> PyResult<String
     Ok(quarantine_file.to_string_lossy().to_string())
 }
 
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn get_process_info(py: Python, pid: u32) -> PyResult<PyObject> {
     unsafe {
@@ -412,6 +444,7 @@ fn get_process_info(py: Python, pid: u32) -> PyResult<PyObject> {
     }
 }
 
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn get_sysmon_network_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObject>> {
     let max = max_events.unwrap_or(100);
@@ -462,6 +495,54 @@ fn get_sysmon_network_events(py: Python, max_events: Option<u32>) -> PyResult<Ve
     })
 }
 
+
+
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn get_sysmon_events(_py: Python, _max_events: Option<u32>) -> PyResult<Vec<PyObject>> {
+    Ok(Vec::new())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn get_sysmon_network_events(_py: Python, _max_events: Option<u32>) -> PyResult<Vec<PyObject>> {
+    Ok(Vec::new())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn terminate_process(_pid: u32) -> PyResult<bool> {
+    Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
+        "terminate_process is only available on Windows. Use psutil on Linux."
+    ))
+}
+
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn suspend_process(_pid: u32) -> PyResult<bool> {
+    Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
+        "suspend_process is only available on Windows"
+    ))
+}
+
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn resume_process(_pid: u32) -> PyResult<bool> {
+    Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
+        "resume_process is only available on Windows"
+    ))
+}
+
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn get_process_info(py: Python, pid: u32) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    dict.set_item("pid", pid)?;
+    dict.set_item("status", "linux_use_psutil")?;
+    Ok(dict.into())
+}
+
+#[cfg(target_os = "windows")]
 fn parse_network_event(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
     let extract_value = |tag: &str| -> String {
         let start_tag = format!("<Data Name='{}'", tag);
@@ -498,6 +579,7 @@ fn get_version() -> PyResult<String> {
     Ok(env!("CARGO_PKG_VERSION").to_string())
 }
 
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn check_sysmon_status() -> PyResult<HashMap<String, String>> {
     let mut status = HashMap::new();
@@ -521,65 +603,16 @@ fn check_sysmon_status() -> PyResult<HashMap<String, String>> {
     Ok(status)
 }
 
-#[pymodule]
-fn nosp_core(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(get_sysmon_events, m)?)?;
-    m.add_function(wrap_pyfunction!(get_sysmon_network_events, m)?)?;
-    m.add_function(wrap_pyfunction!(is_admin, m)?)?;
-    m.add_function(wrap_pyfunction!(get_version, m)?)?;
-    m.add_function(wrap_pyfunction!(check_sysmon_status, m)?)?;
-    m.add_function(wrap_pyfunction!(terminate_process, m)?)?;
-    m.add_function(wrap_pyfunction!(suspend_process, m)?)?;
-    m.add_function(wrap_pyfunction!(resume_process, m)?)?;
-    m.add_function(wrap_pyfunction!(get_process_info, m)?)?;
-    m.add_function(wrap_pyfunction!(quarantine_file, m)?)?;
-    m.add_function(wrap_pyfunction!(block_ip_firewall, m)?)?;
-    m.add_function(wrap_pyfunction!(calculate_file_hash, m)?)?;
-    m.add_function(wrap_pyfunction!(monitor_file_integrity, m)?)?;
-    m.add_function(wrap_pyfunction!(scan_registry_autostart, m)?)?;
-
-    m.add_function(wrap_pyfunction!(omni_wrappers::scan_process_memory_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::dump_process_memory_py, m)?)?;
-
-    m.add_function(wrap_pyfunction!(omni_wrappers::list_usb_devices_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::block_usb_device_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::unblock_usb_device_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::block_all_usb_storage_py, m)?)?;
-
-    m.add_function(wrap_pyfunction!(omni_wrappers::sinkhole_domain_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::unsinkhole_domain_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::list_sinkholed_domains_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::clear_all_sinkholes_py, m)?)?;
-
-    m.add_function(wrap_pyfunction!(omni_wrappers::backup_registry_key_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::restore_registry_key_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::list_registry_backups_py, m)?)?;
-
-    m.add_function(wrap_pyfunction!(omni_wrappers::fim_check_changes_py, m)?)?;
-    m.add_function(wrap_pyfunction!(omni_wrappers::scan_for_ransomware_extensions_py, m)?)?;
-
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::enable_critical_process_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::disable_critical_process_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::is_debugger_present_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_handle_attempts_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_defense_status_py, m)?)?;
-
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_vm_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_debugger_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_environment_status_py, m)?)?;
-
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::start_clipboard_monitor_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::stop_clipboard_monitor_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_clipboard_history_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_latest_suspicious_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::add_to_whitelist_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::remove_from_whitelist_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_whitelist_py, m)?)?;
-    m.add_function(wrap_pyfunction!(event_horizon_wrappers::is_monitoring_py, m)?)?;
-
-    Ok(())
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn check_sysmon_status() -> PyResult<HashMap<String, String>> {
+    let mut status = HashMap::new();
+    status.insert("installed".to_string(), "false".to_string());
+    status.insert("status".to_string(), "linux_not_applicable".to_string());
+    Ok(status)
 }
 
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn block_ip_firewall(ip_address: String, rule_name: String) -> PyResult<bool> {
     use std::process::Command;
@@ -619,72 +652,26 @@ fn block_ip_firewall(ip_address: String, rule_name: String) -> PyResult<bool> {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 #[pyfunction]
-fn calculate_file_hash(file_path: String) -> PyResult<String> {
-    let path = Path::new(&file_path);
+fn block_ip_firewall(ip_address: String, _rule_name: String) -> PyResult<bool> {
+    use std::process::Command;
+    
+    
 
-    if !path.exists() {
-        return Err(PyErr::new::<pyo3::exceptions::PyFileNotFoundError, _>(
-            format!("File not found: {}", file_path)
-        ));
+    let output = Command::new("iptables")
+        .args(&["-A", "OUTPUT", "-d", &ip_address, "-j", "DROP"])
+        .output();
+    
+    match output {
+        Ok(out) if out.status.success() => Ok(true),
+        _ => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Failed to block IP: {}. Root privileges required.", ip_address)
+        ))
     }
-
-    let mut file = fs::File::open(path)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
-            format!("Failed to open file: {}", e)
-        ))?;
-
-    let mut hasher = Sha256::new();
-    let mut buffer = vec![0; 8192];
-
-    loop {
-        let bytes_read = file.read(&mut buffer)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
-                format!("Failed to read file: {}", e)
-            ))?;
-
-        if bytes_read == 0 {
-            break;
-        }
-
-        hasher.update(&buffer[..bytes_read]);
-    }
-
-    let result = hasher.finalize();
-    Ok(hex::encode(result))
 }
 
-#[pyfunction]
-fn monitor_file_integrity(py: Python) -> PyResult<PyObject> {
-    let dict = PyDict::new(py);
-
-    let critical_files = vec![
-        "C:\\Windows\\System32\\ntoskrnl.exe",
-        "C:\\Windows\\System32\\kernel32.dll",
-        "C:\\Windows\\System32\\ntdll.dll",
-        "C:\\Windows\\System32\\user32.dll",
-        "C:\\Windows\\System32\\advapi32.dll",
-        "C:\\Windows\\System32\\hal.dll",
-        "C:\\Windows\\System32\\drivers\\tcpip.sys",
-        "C:\\Windows\\System32\\drivers\\ndis.sys",
-    ];
-
-    for file_path in critical_files {
-        if Path::new(file_path).exists() {
-            match calculate_file_hash(file_path.to_string()) {
-                Ok(hash) => {
-                    dict.set_item(file_path, hash)?;
-                }
-                Err(_) => {
-                    continue;
-                }
-            }
-        }
-    }
-
-    Ok(dict.into())
-}
-
+#[cfg(target_os = "windows")]
 #[pyfunction]
 fn scan_registry_autostart(py: Python) -> PyResult<Vec<PyObject>> {
     let mut results = Vec::new();
@@ -753,6 +740,178 @@ fn scan_registry_autostart(py: Python) -> PyResult<Vec<PyObject>> {
     Ok(results)
 }
 
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn scan_registry_autostart(_py: Python) -> PyResult<Vec<PyObject>> {
+    Ok(Vec::new())
+}
+
+#[cfg(target_os = "windows")]
+#[pyfunction]
+fn monitor_file_integrity(py: Python) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+
+    let critical_files = vec![
+        "C:\\Windows\\System32\\ntoskrnl.exe",
+        "C:\\Windows\\System32\\kernel32.dll",
+        "C:\\Windows\\System32\\ntdll.dll",
+        "C:\\Windows\\System32\\user32.dll",
+        "C:\\Windows\\System32\\advapi32.dll",
+        "C:\\Windows\\System32\\hal.dll",
+        "C:\\Windows\\System32\\drivers\\tcpip.sys",
+        "C:\\Windows\\System32\\drivers\\ndis.sys",
+    ];
+
+    for file_path in critical_files {
+        if Path::new(file_path).exists() {
+            match calculate_file_hash(file_path.to_string()) {
+                Ok(hash) => {
+                    dict.set_item(file_path, hash)?;
+                }
+                Err(_) => {
+                    continue;
+                }
+            }
+        }
+    }
+
+    Ok(dict.into())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[pyfunction]
+fn monitor_file_integrity(py: Python) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    
+    let critical_files = vec![
+        "/bin/bash",
+        "/usr/bin/sudo",
+        "/lib/x86_64-linux-gnu/libc.so.6",
+        "/boot/vmlinuz",
+    ];
+
+    for file_path in critical_files {
+        if Path::new(file_path).exists() {
+            match calculate_file_hash(file_path.to_string()) {
+                Ok(hash) => {
+                    dict.set_item(file_path, hash)?;
+                }
+                Err(_) => {
+                    continue;
+                }
+            }
+        }
+    }
+
+    Ok(dict.into())
+}
+
+#[pymodule]
+fn nosp_core(_py: Python, m: &PyModule) -> PyResult<()> {
+    
+
+    m.add_function(wrap_pyfunction!(is_admin, m)?)?;
+    m.add_function(wrap_pyfunction!(get_version, m)?)?;
+    m.add_function(wrap_pyfunction!(calculate_file_hash, m)?)?;
+    m.add_function(wrap_pyfunction!(quarantine_file, m)?)?;
+    m.add_function(wrap_pyfunction!(monitor_file_integrity, m)?)?;
+    m.add_function(wrap_pyfunction!(block_ip_firewall, m)?)?;
+    
+    
+
+    m.add_function(wrap_pyfunction!(get_sysmon_events, m)?)?;
+    m.add_function(wrap_pyfunction!(get_sysmon_network_events, m)?)?;
+    m.add_function(wrap_pyfunction!(check_sysmon_status, m)?)?;
+    m.add_function(wrap_pyfunction!(scan_registry_autostart, m)?)?;
+    
+    
+
+    m.add_function(wrap_pyfunction!(terminate_process, m)?)?;
+    m.add_function(wrap_pyfunction!(suspend_process, m)?)?;
+    m.add_function(wrap_pyfunction!(resume_process, m)?)?;
+    m.add_function(wrap_pyfunction!(get_process_info, m)?)?;
+
+    
+
+    #[cfg(target_os = "windows")]
+    {
+        m.add_function(wrap_pyfunction!(omni_wrappers::scan_process_memory_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::dump_process_memory_py, m)?)?;
+
+        m.add_function(wrap_pyfunction!(omni_wrappers::list_usb_devices_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::block_usb_device_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::unblock_usb_device_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::block_all_usb_storage_py, m)?)?;
+
+        m.add_function(wrap_pyfunction!(omni_wrappers::sinkhole_domain_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::unsinkhole_domain_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::list_sinkholed_domains_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::clear_all_sinkholes_py, m)?)?;
+
+        m.add_function(wrap_pyfunction!(omni_wrappers::backup_registry_key_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::restore_registry_key_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::list_registry_backups_py, m)?)?;
+
+        m.add_function(wrap_pyfunction!(omni_wrappers::fim_check_changes_py, m)?)?;
+        m.add_function(wrap_pyfunction!(omni_wrappers::scan_for_ransomware_extensions_py, m)?)?;
+
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::enable_critical_process_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::disable_critical_process_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::is_debugger_present_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_handle_attempts_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_defense_status_py, m)?)?;
+
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_vm_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::detect_debugger_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_environment_status_py, m)?)?;
+
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::start_clipboard_monitor_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::stop_clipboard_monitor_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_clipboard_history_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_latest_suspicious_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::add_to_whitelist_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::remove_from_whitelist_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::get_whitelist_py, m)?)?;
+        m.add_function(wrap_pyfunction!(event_horizon_wrappers::is_monitoring_py, m)?)?;
+    }
+
+    Ok(())
+}
+
+#[pyfunction]
+fn calculate_file_hash(file_path: String) -> PyResult<String> {
+    let path = Path::new(&file_path);
+
+    if !path.exists() {
+        return Err(PyErr::new::<pyo3::exceptions::PyFileNotFoundError, _>(
+            format!("File not found: {}", file_path)
+        ));
+    }
+
+    let mut file = fs::File::open(path)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+            format!("Failed to open file: {}", e)
+        ))?;
+
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0; 8192];
+
+    loop {
+        let bytes_read = file.read(&mut buffer)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(
+                format!("Failed to read file: {}", e)
+            ))?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    let result = hasher.finalize();
+    Ok(hex::encode(result))
+}
 
 #[cfg(test)]
 mod tests {
