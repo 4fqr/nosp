@@ -67,6 +67,9 @@ class PacketCapture :
         self .ctx =None
         self ._load_library ()
 
+    from .stability import retry
+
+    @retry(max_attempts=2, initial_delay=0.05, backoff=2.0, exceptions=(Exception,))
     def _load_library (self ):
         """Load packet capture shared library"""
         lib_path =NATIVE_DIR /f"packet_capture{LIB_EXT }"
@@ -207,6 +210,9 @@ class PacketInjector :
         self .ctx =InjectorContext ()
         self ._load_library ()
 
+    from .stability import retry
+
+    @retry(max_attempts=2, initial_delay=0.05, backoff=2.0, exceptions=(Exception,))
     def _load_library (self ):
         """Load packet injector shared library"""
         lib_path =NATIVE_DIR /f"packet_injector{LIB_EXT }"

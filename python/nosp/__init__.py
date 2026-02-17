@@ -8,6 +8,10 @@ A next-generation, privacy-first security monitor powered by Rust and AI.
 __version__ = "0.1.0"
 
 from .errors import Result, NospError, graceful, ensure_no_raise, report_exception  # re-export helpers
+from .stability import configure_logging, register_component, get_health
+
+# ensure logging is configured immediately for all modules
+configure_logging()
 
 __all__ = ['database', 'ai_engine', 'risk_scorer', 'native_bindings', 'linux_compat', 'platform_compat', 'Result', 'NospError']
 

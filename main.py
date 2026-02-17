@@ -81,6 +81,28 @@ layout ="wide",
 initial_sidebar_state ="expanded"
 )
 
+# register OS signal handlers for graceful shutdown
+import signal
+from nosp.stability import graceful_shutdown, get_health
+
+def _signal_handler(signum, frame):
+    logger.info("Received signal %s — performing graceful shutdown", signum)
+    components = {
+        'system_tray': st.session_state.get('system_tray'),
+        'session_manager': st.session_state.get('session_manager'),
+        'db': st.session_state.get('db'),
+        'plugin_manager': st.session_state.get('plugin_manager'),
+    }
+    graceful_shutdown(components)
+    logger.info("Shutdown complete; exiting")
+    try:
+        sys.exit(0)
+    except SystemExit:
+        pass
+
+signal.signal(signal.SIGINT, _signal_handler)
+signal.signal(signal.SIGTERM, _signal_handler)
+
 CYBERPUNK_CSS ="""
 <style>
     /* Main theme colors - OMEGA Enhanced */
@@ -283,35 +305,43 @@ if 'initialized'not in st .session_state :
 
 
 def initialize_components ():
-    """Initialize all NOSP components."""
+    """Initialize all NOSP components and register health status."""
+    from nosp.stability import register_component
     try :
         st .session_state .db =NOSPDatabase ()
+        register_component('database','ok')
         logger .info ("✓ Database initialized")
 
         st .session_state .ai_engine =NOSPAIEngine (model_name ="mistral-small")
+        register_component('ai_engine','ok')
         logger .info ("✓ AI engine initialized")
 
         st .session_state .risk_scorer =RiskScorer ()
+        register_component('risk_scorer','ok')
         logger .info ("✓ Risk scorer initialized")
 
         st .session_state .alert_system =AudioAlertSystem ()
         st .session_state .alert_manager =AlertManager (st .session_state .alert_system )
+        register_component('alert_system','ok')
         logger .info ("✓ Alert system initialized")
 
         st .session_state .process_tree =ProcessTree ()
+        register_component('process_tree','ok')
         logger .info ("✓ Process tree initialized")
 
         st .session_state .forensic_reporter =ForensicReporter ()
+        register_component('forensic_reporter','ok')
         logger .info ("✓ Forensic reporter initialized")
 
         try :
             st .session_state .system_tray =NOSPSystemTray ()
             st .session_state .system_tray .start ()
+            register_component('system_tray','ok')
             logger .info ("✓ System tray initialized")
         except Exception as e :
             logger .warning (f"⚠ System tray unavailable: {e }")
             st .session_state .system_tray =None 
-
+            register_component('system_tray','disabled',{'reason':str(e)})
 
         try :
             st .session_state .rules_engine =RulesEngine (rules_file ="rules.yaml")
@@ -320,46 +350,57 @@ def initialize_components ():
             st .session_state .rules_engine .register_action_handler ('quarantine',handle_quarantine_action )
             st .session_state .rules_engine .register_action_handler ('alert',handle_alert_action )
             st .session_state .rules_engine .register_action_handler ('block_ip',handle_block_ip_action )
+            register_component('rules_engine','ok')
             logger .info ("✓ Rules engine initialized")
         except Exception as e :
             logger .warning (f"⚠ Rules engine unavailable: {e }")
             st .session_state .rules_engine =None 
+            register_component('rules_engine','disabled',{'reason':str(e)})
 
         try :
             st .session_state .ml_detector =MLAnomalyDetector (model_path ="models/anomaly_detector.pkl")
+            register_component('ml_detector','ok')
             logger .info ("✓ ML anomaly detector initialized")
         except Exception as e :
             logger .warning (f"⚠ ML detector unavailable: {e }")
             st .session_state .ml_detector =None 
+            register_component('ml_detector','disabled',{'reason':str(e)})
 
         try :
             st .session_state .plugin_manager =PluginManager (plugins_dir ="plugins")
+            register_component('plugin_manager','ok')
             logger .info ("✓ Plugin manager initialized")
         except Exception as e :
             logger .warning (f"⚠ Plugin manager unavailable: {e }")
             st .session_state .plugin_manager =None 
-
+            register_component('plugin_manager','disabled',{'reason':str(e)})
 
         try :
             st .session_state .system_hardener =SystemHardener ()
+            register_component('system_hardener','ok')
             logger .info ("✓ System hardener initialized")
         except Exception as e :
             logger .warning (f"⚠ System hardener unavailable: {e }")
             st .session_state .system_hardener =None 
+            register_component('system_hardener','disabled',{'reason':str(e)})
 
         try :
             st .session_state .session_manager =SessionManager ()
+            register_component('session_manager','ok')
             logger .info ("✓ Session manager initialized")
         except Exception as e :
             logger .warning (f"⚠ Session manager unavailable: {e }")
             st .session_state .session_manager =None 
+            register_component('session_manager','disabled',{'reason':str(e)})
 
         try :
             st .session_state .terminal =TerminalSession ()
+            register_component('terminal','ok')
             logger .info ("✓ Terminal session initialized")
         except Exception as e :
             logger .warning (f"⚠ Terminal session unavailable: {e }")
             st .session_state .terminal =None 
+            register_component('terminal','disabled',{'reason':str(e)})
 
         st .session_state .initialized =True 
 
@@ -371,7 +412,7 @@ def initialize_components ():
     except Exception as e :
         logger .error (f"✗ Initialization failed: {e }")
         st .error (f"⚠ Failed to initialize NOSP components: {e }")
-        return False 
+        return False
 
 
 

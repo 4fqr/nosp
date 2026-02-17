@@ -224,6 +224,9 @@ class LinuxNetworkMonitor :
             logger .warning ("netfilterqueue not available. Install with: pip install NetfilterQueue")
             return False
 
+    from .stability import retry
+
+    @retry(max_attempts=2, initial_delay=0.1, backoff=2.0, exceptions=(Exception,))
     def start_packet_capture (self ,callback ):
         if not self .nfqueue_available :
             logger .error ("NetfilterQueue not available")

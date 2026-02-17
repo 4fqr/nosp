@@ -45,12 +45,15 @@ class NOSPAIEngine :
         if self .ollama_running :
             self ._ensure_model_available ()
 
+    from .stability import retry
+
+    @retry(max_attempts=3, initial_delay=0.2, backoff=2.0, exceptions=(Exception,))
     def _check_ollama_service (self )->bool :
         """Check if Ollama service is running."""
-        try :
-            ollama .list ()
-            self .ollama_running =True
-            logger .info ("✓ Ollama service is running")
+        try:
+            ollama.list()
+            self.ollama_running = True
+            logger.info("✓ Ollama service is running")
             return True
         except Exception as e:
             logger.error(f"✗ Ollama service not accessible: {e}")
@@ -60,6 +63,9 @@ class NOSPAIEngine :
             self.ollama_running = False
             return False
 
+    from .stability import retry
+
+    @retry(max_attempts=3, initial_delay=0.5, backoff=2.0, exceptions=(Exception,))
     def _ensure_model_available (self )->bool :
         """
         Ensure the required model is available locally.
@@ -86,7 +92,7 @@ class NOSPAIEngine :
                 return True
             except Exception as pull_error:
                 logger.error(f"✗ Failed to pull model: {pull_error}")
-                logger.error("  Please run manually: ollama pull llama3")
+                logger.error("  Please run manually: ollama pull mistral-small")
                 report_exception(pull_error, context="ai_engine_pull_model")
                 return False
 
