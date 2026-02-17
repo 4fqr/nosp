@@ -1,8 +1,8 @@
-# NOSP - Neural Operating System Protector
+# NOSP — Network Observation Security Platform
 
 ## Overview
 
-NOSP is a threat detection system combining kernel-level event monitoring with AI-powered behavioral analysis. It provides real-time protection through Python orchestration, Rust performance modules, and AI threat intelligence.
+NOSP is a practical, production-focused threat detection platform. It combines event collection, heuristic scoring and optional AI analysis to provide real‑time monitoring and response. The implementation uses a Python orchestration layer with high‑performance Rust components for low‑level monitoring.
 
 ## Features
 
@@ -98,12 +98,21 @@ ollama pull mistral
 
 ### Command Line
 
-```bash
-python main.py --scan          # Full system scan
-python main.py --watch         # Real-time monitoring
-python main.py --analyze PID   # Analyze specific process
-```
+A small, purpose‑built CLI is available for headless use. Use `python -m nosp.cli` or the legacy `python main.py` entry points for simple tasks.
 
+```bash
+# Initialize database
+python -m nosp.cli init-db --db ./nosp.db
+
+# Run a heuristic process scan (top 10 suspicious)
+python -m nosp.cli scan --top 10
+
+# Run AI analysis for a running PID (best-effort)
+python -m nosp.cli analyze --pid 1234
+
+# Watch for new processes and report suspicious ones
+python -m nosp.cli watch --duration 60
+```
 ### Python Module
 
 ```python
