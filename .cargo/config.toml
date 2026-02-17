@@ -1,11 +1,4 @@
-# NOSP Cargo Build Configuration
-# This file is used by cargo to configure build settings
 
-# [build]
-# Target Windows x86_64 by default
-# Comment out to use native target (Linux/Windows)
-# target = "x86_64-pc-windows-msvc"
 
 [target.x86_64-pc-windows-msvc]
-# Use the MSVC linker (Windows only)
 linker = "link.exe"
