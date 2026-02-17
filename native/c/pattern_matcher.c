@@ -1,8 +1,4 @@
-/*
- * NOSP C Core - Aho-Corasick Pattern Matching Engine
- * Ultra-high-performance multi-pattern matching for signature scanning
- * Nanosecond-level latency for real-time threat detection
- */
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,16 +11,19 @@
 #define ALPHABET_SIZE 256
 #define MAX_STATES 100000
 
-// Aho-Corasick automaton node
+
+
 typedef struct ACNode {
     struct ACNode *children[ALPHABET_SIZE];
     struct ACNode *failure;
-    int *outputs;  // Array of pattern IDs
+    int *outputs;  
+
     int output_count;
     int state_id;
 } ACNode;
 
-// Pattern matcher structure
+
+
 typedef struct {
     ACNode *root;
     int state_count;
@@ -33,7 +32,8 @@ typedef struct {
     int *pattern_lengths;
 } ACMatcher;
 
-// Queue for BFS during failure function computation
+
+
 typedef struct {
     ACNode **data;
     int front;
@@ -41,7 +41,8 @@ typedef struct {
     int capacity;
 } Queue;
 
-// Queue operations
+
+
 Queue* create_queue(int capacity) {
     Queue *q = (Queue*)malloc(sizeof(Queue));
     q->data = (ACNode**)malloc(capacity * sizeof(ACNode*));
@@ -68,7 +69,8 @@ void free_queue(Queue *q) {
     free(q);
 }
 
-// Create new AC node
+
+
 ACNode* create_node(int state_id) {
     ACNode *node = (ACNode*)calloc(1, sizeof(ACNode));
     node->state_id = state_id;
@@ -81,7 +83,8 @@ ACNode* create_node(int state_id) {
     return node;
 }
 
-// Initialize matcher
+
+
 ACMatcher* ac_init() {
     ACMatcher *matcher = (ACMatcher*)malloc(sizeof(ACMatcher));
     matcher->root = create_node(0);
@@ -92,7 +95,8 @@ ACMatcher* ac_init() {
     return matcher;
 }
 
-// Add pattern to trie
+
+
 int ac_add_pattern(ACMatcher *matcher, const char *pattern) {
     if (matcher->pattern_count >= MAX_PATTERNS) {
         return -1;
@@ -101,13 +105,15 @@ int ac_add_pattern(ACMatcher *matcher, const char *pattern) {
     int pattern_id = matcher->pattern_count;
     int len = strlen(pattern);
     
-    // Store pattern
+    
+
     matcher->patterns[pattern_id] = (char*)malloc((len + 1) * sizeof(char));
     strcpy(matcher->patterns[pattern_id], pattern);
     matcher->pattern_lengths[pattern_id] = len;
     matcher->pattern_count++;
     
-    // Build trie
+    
+
     ACNode *current = matcher->root;
     for (int i = 0; i < len; i++) {
         unsigned char c = (unsigned char)pattern[i];
@@ -118,18 +124,21 @@ int ac_add_pattern(ACMatcher *matcher, const char *pattern) {
         current = current->children[c];
     }
     
-    // Add output
+    
+
     current->outputs = (int*)realloc(current->outputs, (current->output_count + 1) * sizeof(int));
     current->outputs[current->output_count++] = pattern_id;
     
     return pattern_id;
 }
 
-// Build failure function (BFS-based)
+
+
 void ac_build_failure(ACMatcher *matcher) {
     Queue *queue = create_queue(MAX_STATES);
     
-    // Initialize root's children failure links
+    
+
     for (int i = 0; i < ALPHABET_SIZE; i++) {
         if (matcher->root->children[i] != NULL) {
             matcher->root->children[i]->failure = matcher->root;
@@ -137,7 +146,8 @@ void ac_build_failure(ACMatcher *matcher) {
         }
     }
     
-    // BFS to compute failure function
+    
+
     while (!is_queue_empty(queue)) {
         ACNode *current = dequeue(queue);
         
@@ -147,7 +157,8 @@ void ac_build_failure(ACMatcher *matcher) {
             
             enqueue(queue, child);
             
-            // Find failure link
+            
+
             ACNode *failure = current->failure;
             while (failure != NULL && failure->children[i] == NULL) {
                 failure = failure->failure;
@@ -158,7 +169,8 @@ void ac_build_failure(ACMatcher *matcher) {
             } else {
                 child->failure = failure->children[i];
                 
-                // Merge outputs
+                
+
                 if (child->failure->output_count > 0) {
                     int old_count = child->output_count;
                     child->output_count += child->failure->output_count;
@@ -173,7 +185,8 @@ void ac_build_failure(ACMatcher *matcher) {
     free_queue(queue);
 }
 
-// Search for patterns in text (returns match positions)
+
+
 typedef struct {
     int pattern_id;
     int position;
@@ -196,7 +209,8 @@ ACResult* ac_search(ACMatcher *matcher, const char *text, int text_len) {
     for (int i = 0; i < text_len; i++) {
         unsigned char c = (unsigned char)text[i];
         
-        // Follow failure links until we find a valid transition
+        
+
         while (current != matcher->root && current->children[c] == NULL) {
             current = current->failure;
         }
@@ -205,10 +219,12 @@ ACResult* ac_search(ACMatcher *matcher, const char *text, int text_len) {
             current = current->children[c];
         }
         
-        // Report matches
+        
+
         if (current->output_count > 0) {
             for (int j = 0; j < current->output_count; j++) {
-                // Expand result array if needed
+                
+
                 if (result->count >= result->capacity) {
                     result->capacity *= 2;
                     result->matches = (ACMatch*)realloc(result->matches, 
@@ -225,7 +241,8 @@ ACResult* ac_search(ACMatcher *matcher, const char *text, int text_len) {
     return result;
 }
 
-// Free resources
+
+
 void ac_free_node(ACNode *node) {
     if (node == NULL) return;
     
@@ -256,7 +273,8 @@ void ac_free_result(ACResult *result) {
     free(result);
 }
 
-// Benchmark and test functions
+
+
 #ifdef AC_TEST_MAIN
 #include <time.h>
 
@@ -269,10 +287,12 @@ double get_time() {
 int main() {
     printf("=== NOSP Aho-Corasick Pattern Matcher ===\n\n");
     
-    // Create matcher
+    
+
     ACMatcher *matcher = ac_init();
     
-    // Add malware patterns
+    
+
     const char *malware_patterns[] = {
         "mimikatz", "sekurlsa", "lsadump", "kerberos",
         "procdump", "psexec", "wmic", "powershell -enc",
@@ -293,7 +313,8 @@ int main() {
     ac_build_failure(matcher);
     printf("Pattern matcher ready with %d states\n\n", matcher->state_count);
     
-    // Test search
+    
+
     const char *test_text = 
         "C:\\Windows\\System32\\cmd.exe /c powershell -enc SGVsbG8gV29ybGQ= "
         "C:\\Temp\\mimikatz.exe sekurlsa::logonpasswords "
@@ -315,9 +336,11 @@ int main() {
                result->matches[i].position);
     }
     
-    // Benchmark with large text
+    
+
     printf("\n--- Performance Benchmark ---\n");
-    const int large_size = 1024 * 1024;  // 1 MB
+    const int large_size = 1024 * 1024;  
+
     char *large_text = (char*)malloc(large_size);
     memset(large_text, 'A', large_size);
     memcpy(large_text + large_size / 2, "mimikatz sekurlsa", 17);
@@ -330,7 +353,8 @@ int main() {
     printf("Throughput: %.2f MB/s\n", 1.0 / (end - start));
     printf("Found %d matches\n", bench_result->count);
     
-    // Cleanup
+    
+
     ac_free_result(result);
     ac_free_result(bench_result);
     free(large_text);
