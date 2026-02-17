@@ -82,7 +82,7 @@ pip3 list | grep psutil
 3. Wait for startup messages:
    ```
    ✓ Running on Linux - using compatibility layer
-   ✓ AI Engine initialized
+   ✓ AI Engine initialized (model: mistral-small)
    ✓ Database connected
    ✓ Web server starting on http://localhost:8080
    ```
@@ -326,6 +326,9 @@ To analyze an event:
 2. Click "Analyze" on event row
 3. Wait for results (2-5 seconds)
 4. Review analysis and MITRE mapping
+
+Notes on the default model:
+- NOSP recommends `mistral-small` for local AI analysis: it is compact, fast, and suitable for endpoint deployments.
 
 ## Memory Forensics
 
@@ -613,7 +616,7 @@ Optimize NOSP performance:
 
 **Error:** "Model not ready"
 - **Fix:** Install Ollama: `pip install ollama`
-- **Fix:** Pull model: `ollama pull mistral`
+- **Fix:** Pull model: `ollama pull mistral-small`
 - **Check:** Ollama service running
 
 **Error:** "Connection refused"

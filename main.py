@@ -288,7 +288,7 @@ def initialize_components ():
         st .session_state .db =NOSPDatabase ()
         logger .info ("✓ Database initialized")
 
-        st .session_state .ai_engine =NOSPAIEngine (model_name ="llama3")
+        st .session_state .ai_engine =NOSPAIEngine (model_name ="mistral-small")
         logger .info ("✓ AI engine initialized")
 
         st .session_state .risk_scorer =RiskScorer ()

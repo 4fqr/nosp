@@ -91,9 +91,10 @@ Navigate to `http://localhost:8080`
 
 ```bash
 pip install ollama
-ollama pull mistral
+ollama pull mistral-small
 ```
 
+Recommended model for NOSP: `mistral-small` — a compact, low‑latency model that balances accuracy and resource usage for edge and endpoint analysis.
 ## Usage
 
 ### Command Line
@@ -139,7 +140,7 @@ Environment variables or edit `main.py`:
 
 ```python
 db_path = "nosp.db"
-ai_model = "mistral"
+ai_model = "mistral-small"  # recommended small, low-latency model
 host = "127.0.0.1"
 port = 8080
 log_level = "INFO"
@@ -192,7 +193,7 @@ NOSP/
 
 **Linux: Limited monitoring**: Run with `sudo` for full capabilities.
 
-**AI returns "Model not ready"**: Install Ollama and run `ollama pull mistral`.
+**AI returns "Model not ready"**: Install Ollama and run `ollama pull mistral-small`
 
 **Database errors**: Stop NOSP, delete `nosp.db` (or remove the journal file `nosp.db-journal`) and restart.
 

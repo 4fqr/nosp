@@ -170,7 +170,7 @@ net_mon.start_packet_capture(packet_callback)
 ```python
 from nosp.ai_engine import AIEngine
 
-engine = AIEngine(model_name="mistral")
+engine = AIEngine(model_name="mistral-small")  # recommended small, low-latency model
 
 # Analyze process event
 event = {
@@ -660,7 +660,7 @@ violations = file_monitor.check_integrity()
 ### Cross-Platform
 
 **Issue:** AI analysis not working  
-**Solution:** Install Ollama: `pip install ollama` and `ollama pull mistral`
+**Solution:** Install Ollama: `pip install ollama` and `ollama pull mistral-small`
 
 **Issue:** Database errors  
 **Solution:** Delete nosp.db and restart: `rm nosp.db && python main.py`
