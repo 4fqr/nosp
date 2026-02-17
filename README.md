@@ -27,10 +27,14 @@ NOSP is a threat detection system combining kernel-level event monitoring with A
 
 ## Requirements
 
-- **Windows 10/11** (Administrator privileges) or **Linux** (Debian/Ubuntu with root for full features)
-- Python 3.8+
-- Rust 1.70+ (if building from source)
+- Supported OS: **Windows 10/11** (Administrator privileges required for full feature set) or **Linux** (Debian/Ubuntu; root required for kernel/packet features)
+- Python 3.8+ (3.11+ recommended)
+- Rust 1.70+ (required only if building the Rust/pyo3 extension from source)
+- Development headers for Python (e.g., `python3-dev` / `python-devel`) are required to build the Rust/Python extension (pyo3)
 
+Notes:
+- Many public Python APIs now provide `*_safe` variants that return a `Result` object; unhandled exceptions are logged to `nosp_error.log` (see Troubleshooting).
+- Privileged operations (packet capture/injection, registry modifications, firewall/iptables changes) require elevated privileges and cannot be fully validated on unprivileged CI runners.
 ## Installation
 
 ### Automated Setup (Windows)
@@ -146,6 +150,16 @@ Rust Core (ETW, Memory, USB, DNS, Registry)
 - **Rust**: High-performance kernel event capture, memory forensics
 - **Flow**: ETW events → Rust → Python → AI → Database → UI
 
+### Developer / Tests
+
+- Unit tests: run `pytest -q` from the repository root (Python test-suite currently covers non-privileged code paths; current local suite: 30 tests).
+- Rust: `cargo build --release` verifies Rust library builds; `cargo test` runs unit tests. Local `cargo test` may fail to link pyo3 tests unless `PYTHON_SYS_EXECUTABLE` is set to the interpreter used for the build.
+- Build Python extension (pyo3): use `maturin develop` or `maturin build`.
+- Continuous integration: GitHub Actions runs build and test jobs for both Linux and Windows; CI sets `PYTHON_SYS_EXECUTABLE` to ensure pyo3 tests link correctly.
+
+Developer notes:
+- Most public Python functions have `*_safe` counterparts that return a `Result` object rather than raising exceptions.
+- Exception reporting is centralized; consult `nosp_error.log` for structured exception reports and remediation hints.
 ## Project Structure
 
 ```
@@ -165,16 +179,20 @@ NOSP/
 
 ## Troubleshooting
 
-**Windows: ETW events not captured**: Run as Administrator
+**Windows: ETW events not captured**: Run as Administrator.
 
-**Linux: Limited monitoring**: Run with `sudo` for full capabilities
+**Linux: Limited monitoring**: Run with `sudo` for full capabilities.
 
-**AI returns "Model not ready"**: Install Ollama and run `ollama pull mistral`
+**AI returns "Model not ready"**: Install Ollama and run `ollama pull mistral`.
 
-**Database errors**: Delete `nosp.db` and restart
+**Database errors**: Stop NOSP, delete `nosp.db` (or remove the journal file `nosp.db-journal`) and restart.
 
-**Rust import fails**: Rebuild with `cargo build --release` or `maturin develop`
+**Rust import fails / pyo3 linkage errors**: Ensure Python development headers are installed and re-run `maturin develop` or `cargo build --release`.
+- Local pyo3-linked tests may fail to link unless the build process is pointed at the exact Python executable. For local pyo3 test execution set the environment variable `PYTHON_SYS_EXECUTABLE` to your Python interpreter (example: `export PYTHON_SYS_EXECUTABLE=$(which python3)`). CI sets this variable automatically.
 
+**Where exceptions are logged**: NOSP writes structured, developer-facing exception reports to `nosp_error.log` in the working directory. Use `tail -n 200 nosp_error.log` to inspect recent errors. Public APIs provide `*_safe` variants that return `Result` objects rather than raising unhandled exceptions.
+
+**Privileged-feature limitations**: Packet capture/injection, firewall/iptables edits, and registry changes require elevated privileges and hardware/OS access; these operations require manual verification on suitably privileged test hosts.
 ## Platform Compatibility
 
 ### Windows (Full Support)

@@ -3,18 +3,17 @@ NOSP vOMEGA - Machine Learning Anomaly Detection
 Uses Isolation Forest for unsupervised anomaly detection in process behavior
 """
 
-import numpy as np 
-import pandas as pd 
-from sklearn .ensemble import IsolationForest 
-from sklearn .preprocessing import LabelEncoder ,StandardScaler 
-import joblib 
-import logging 
-from typing import Dict ,List ,Any ,Optional ,Tuple 
-from pathlib import Path 
-import json 
-from datetime import datetime ,timedelta 
+import numpy as np
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+import joblib
+import logging
+from typing import Dict, List, Any, Optional, Tuple
+from pathlib import Path
+from datetime import datetime
+from .errors import report_exception
 
-logger =logging .getLogger (__name__ )
+logger = logging.getLogger(__name__)
 
 
 class MLAnomalyDetector :
@@ -33,13 +32,13 @@ class MLAnomalyDetector :
         self .model_path =Path (model_path )
         self .model_path .parent .mkdir (parents =True ,exist_ok =True )
 
-        self .model :Optional [IsolationForest ]=None 
+        self .model :Optional [IsolationForest ]=None
         self .scaler =StandardScaler ()
         self .label_encoders :Dict [str ,LabelEncoder ]={}
 
         self .training_buffer :List [Dict [str ,Any ]]=[]
-        self .buffer_size =1000 
-        self .min_training_samples =100 
+        self .buffer_size =1000
+        self .min_training_samples =100
 
         self .numerical_features =[
         'risk_score',
@@ -61,7 +60,7 @@ class MLAnomalyDetector :
         'anomalies_detected':0 ,
         'normal_detected':0 ,
         'training_samples':0 ,
-        'last_trained':None 
+        'last_trained':None
         }
 
         self .load_model ()
@@ -76,7 +75,7 @@ class MLAnomalyDetector :
         contamination =0.1 ,
         max_samples ='auto',
         random_state =42 ,
-        n_jobs =-1 
+        n_jobs =-1
         )
         logger .info ("Initialized new Isolation Forest model")
 
@@ -95,19 +94,19 @@ class MLAnomalyDetector :
         features ['parent_pid']=int (event .get ('parent_pid',0 ))
         features ['pid']=int (event .get ('pid',0 ))
 
-        try :
-            timestamp =datetime .fromisoformat (event .get ('timestamp',datetime .now ().isoformat ()))
-            features ['hour_of_day']=timestamp .hour 
-            features ['day_of_week']=timestamp .weekday ()
-        except :
-            features ['hour_of_day']=0 
-            features ['day_of_week']=0 
+        try:
+            timestamp = datetime.fromisoformat(event.get('timestamp', datetime.now().isoformat()))
+            features['hour_of_day'] = timestamp.hour
+            features['day_of_week'] = timestamp.weekday()
+        except Exception:
+            features['hour_of_day'] = 0
+            features['day_of_week'] = 0
 
         features ['process_name']=event .get ('process_name','unknown').lower ()
         features ['parent_name']=event .get ('parent_name','unknown').lower ()
         features ['user']=event .get ('user','unknown').lower ()
 
-        return features 
+        return features
 
     def _encode_features (self ,features_dict :Dict [str ,Any ],fit :bool =False )->np .ndarray :
         """
@@ -137,18 +136,18 @@ class MLAnomalyDetector :
                         classes =list (self .label_encoders [feat ].classes_ )
                         classes .append (value )
                         self .label_encoders [feat ].classes_ =np .array (classes )
-                except :
-                    self .label_encoders [feat ].fit ([value ])
+                except Exception:
+                    self.label_encoders[feat].fit([value])
 
-                encoded =self .label_encoders [feat ].transform ([value ])[0 ]
+                encoded = self.label_encoders[feat].transform([value])[0]
             else :
                 if feat not in self .label_encoders :
-                    encoded =0 
+                    encoded =0
                 else :
-                    try :
-                        encoded =self .label_encoders [feat ].transform ([value ])[0 ]
-                    except :
-                        encoded =0 
+                    try:
+                        encoded = self.label_encoders[feat].transform([value])[0]
+                    except Exception:
+                        encoded = 0
 
             feature_vector .append (float (encoded ))
 
@@ -172,9 +171,9 @@ class MLAnomalyDetector :
         Returns:
             True if training successful
         """
-        if not force and len (self .training_buffer )<self .min_training_samples :
-            logger .info (f"Not enough samples for training: {len (self .training_buffer )}/{self .min_training_samples }")
-            return False 
+        if not force and len(self.training_buffer) < self.min_training_samples:
+            logger.info(f"Not enough samples for training: {len(self.training_buffer)}/{self.min_training_samples}")
+            return False
 
         try :
             logger .info (f"Training model on {len (self .training_buffer )} samples...")
@@ -196,11 +195,12 @@ class MLAnomalyDetector :
             self .save_model ()
 
             logger .info (f"✓ Model trained successfully with {len (self .training_buffer )} samples")
-            return True 
+            return True
 
-        except Exception as e :
-            logger .error (f"Training failed: {e }")
-            return False 
+        except Exception as e:
+            logger.error(f"Training failed: {e}")
+            report_exception(e, context="MLAnomalyDetector.train")
+            return False
 
     def predict (self ,event :Dict [str ,Any ])->Tuple [bool ,float ,str ]:
         """
@@ -224,14 +224,14 @@ class MLAnomalyDetector :
             prediction =self .model .predict (X_scaled )[0 ]
             anomaly_score =self .model .score_samples (X_scaled )[0 ]
 
-            self .stats ['predictions']+=1 
+            self .stats ['predictions']+=1
 
             is_anomaly =(prediction ==-1 )
 
             if is_anomaly :
-                self .stats ['anomalies_detected']+=1 
+                self .stats ['anomalies_detected']+=1
             else :
-                self .stats ['normal_detected']+=1 
+                self .stats ['normal_detected']+=1
 
             abs_score =abs (anomaly_score )
             if abs_score >0.3 :
@@ -241,11 +241,12 @@ class MLAnomalyDetector :
             else :
                 confidence ="low"
 
-            return is_anomaly ,float (anomaly_score ),confidence 
+            return is_anomaly ,float (anomaly_score ),confidence
 
-        except Exception as e :
-            logger .error (f"Prediction failed: {e }")
-            return False ,0.0 ,"error"
+        except Exception as e:
+            logger.error(f"Prediction failed: {e}")
+            report_exception(e, context="MLAnomalyDetector.predict")
+            return False, 0.0, "error"
 
     def save_model (self )->bool :
         """Save model and encoders to disk"""
@@ -260,17 +261,18 @@ class MLAnomalyDetector :
 
             joblib .dump (model_data ,self .model_path )
             logger .info (f"Model saved to {self .model_path }")
-            return True 
+            return True
 
-        except Exception as e :
-            logger .error (f"Failed to save model: {e }")
-            return False 
+        except Exception as e:
+            logger.error(f"Failed to save model: {e}")
+            report_exception(e, context="MLAnomalyDetector.save_model")
+            return False
 
     def load_model (self )->bool :
         """Load model and encoders from disk"""
         if not self .model_path .exists ():
             logger .info ("No existing model found")
-            return False 
+            return False
 
         try :
             model_data =joblib .load (self .model_path )
@@ -282,11 +284,12 @@ class MLAnomalyDetector :
 
             logger .info (f"Model loaded from {self .model_path }")
             logger .info (f"Last trained: {self .stats .get ('last_trained','unknown')}")
-            return True 
+            return True
 
-        except Exception as e :
-            logger .error (f"Failed to load model: {e }")
-            return False 
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            report_exception(e, context="MLAnomalyDetector.load_model")
+            return False
 
     def get_feature_importance (self )->Dict [str ,float ]:
         """
@@ -296,28 +299,28 @@ class MLAnomalyDetector :
         if self .model is None :
             return {}
 
-        all_features =self .numerical_features +self .categorical_features 
+        all_features =self .numerical_features +self .categorical_features
         return {feat :1.0 /len (all_features )for feat in all_features }
 
     def get_stats (self )->Dict [str ,Any ]:
         """Get detector statistics"""
         stats =self .stats .copy ()
         stats ['buffer_size']=len (self .training_buffer )
-        stats ['model_loaded']=self .model is not None 
+        stats ['model_loaded']=self .model is not None
 
         total =stats ['predictions']
         if total >0 :
-            stats ['anomaly_rate']=stats ['anomalies_detected']/total 
+            stats ['anomaly_rate']=stats ['anomalies_detected']/total
         else :
-            stats ['anomaly_rate']=0.0 
+            stats ['anomaly_rate']=0.0
 
-        return stats 
+        return stats
 
     def reset_stats (self ):
         """Reset prediction statistics"""
-        self .stats ['predictions']=0 
-        self .stats ['anomalies_detected']=0 
-        self .stats ['normal_detected']=0 
+        self .stats ['predictions']=0
+        self .stats ['anomalies_detected']=0
+        self .stats ['normal_detected']=0
 
 
 def create_ml_detector (model_path :str ="models/anomaly_detector.pkl")->MLAnomalyDetector :

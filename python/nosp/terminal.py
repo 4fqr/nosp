@@ -3,13 +3,11 @@ NOSP vAPEX - Embedded Web Terminal
 Execute system commands directly from the NOSP interface
 """
 
-import subprocess 
-import logging 
-import re 
-from typing import Tuple ,List ,Optional ,Dict 
-from datetime import datetime 
-from pathlib import Path 
-import shlex 
+import subprocess
+import logging
+from typing import Tuple ,List ,Optional ,Dict
+from datetime import datetime
+from pathlib import Path
 
 logger =logging .getLogger (__name__ )
 
@@ -29,7 +27,7 @@ class CommandSanitizer :
     'sc stop','sc delete'
     }
 
-    @staticmethod 
+    @staticmethod
     def is_safe (command :str )->Tuple [bool ,Optional [str ]]:
         """
         Check if command is safe to execute
@@ -51,18 +49,18 @@ class CommandSanitizer :
         if '..'in command or '~'in command :
             return False ,"Path traversal detected"
 
-        return True ,None 
+        return True ,None
 
-    @staticmethod 
+    @staticmethod
     def needs_confirmation (command :str )->bool :
         """Check if command requires user confirmation"""
         cmd_lower =command .lower ().strip ()
 
         for sensitive in CommandSanitizer .REQUIRE_CONFIRMATION :
             if cmd_lower .startswith (sensitive ):
-                return True 
+                return True
 
-        return False 
+        return False
 
 
 class TerminalSession :
@@ -78,7 +76,7 @@ class TerminalSession :
 
     def __init__ (self ,max_history :int =100 ):
         self .history :List [Dict ]=[]
-        self .max_history =max_history 
+        self .max_history =max_history
         self .working_directory =Path .cwd ()
         self .shell ="cmd"
 
@@ -104,10 +102,10 @@ class TerminalSession :
             'stdout':'',
             'stderr':f"BLOCKED: {reason }",
             'returncode':-1 ,
-            'duration':0 
+            'duration':0
             }
             self ._add_to_history (result )
-            return result 
+            return result
 
         start_time =datetime .now ()
 
@@ -134,11 +132,11 @@ class TerminalSession :
             'stdout':proc .stdout ,
             'stderr':proc .stderr ,
             'returncode':proc .returncode ,
-            'duration':duration 
+            'duration':duration
             }
 
         except subprocess .TimeoutExpired :
-            duration =timeout 
+            duration =timeout
             result ={
             'timestamp':timestamp ,
             'command':command ,
@@ -146,7 +144,7 @@ class TerminalSession :
             'stdout':'',
             'stderr':f"Command timed out after {timeout } seconds",
             'returncode':-1 ,
-            'duration':duration 
+            'duration':duration
             }
 
         except Exception as e :
@@ -158,13 +156,13 @@ class TerminalSession :
             'stdout':'',
             'stderr':str (e ),
             'returncode':-1 ,
-            'duration':duration 
+            'duration':duration
             }
 
         self ._add_to_history (result )
 
         logger .info (f"Executed: {command } (success: {result ['success']})")
-        return result 
+        return result
 
     def _add_to_history (self ,result :Dict ):
         """Add command result to history"""
@@ -189,15 +187,15 @@ class TerminalSession :
         try :
             new_path =Path (path ).resolve ()
             if new_path .exists ()and new_path .is_dir ():
-                self .working_directory =new_path 
+                self .working_directory =new_path
                 logger .info (f"Changed directory to: {new_path }")
-                return True 
+                return True
             else :
                 logger .error (f"Directory not found: {path }")
-                return False 
+                return False
         except Exception as e :
             logger .error (f"Failed to change directory: {e }")
-            return False 
+            return False
 
     def get_working_directory (self )->str :
         """Get current working directory"""

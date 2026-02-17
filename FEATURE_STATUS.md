@@ -1,5 +1,5 @@
 # NOSP Feature Status Report
-**Generated:** February 12, 2026  
+**Generated:** February 17, 2026  
 **Platform Tested:** Linux (Ubuntu 24.04)  
 **Python:** 3.12.3
 
@@ -7,12 +7,10 @@
 
 ## Executive Summary
 
-**✅ ALL 18 ADVERTISED FEATURES EXIST IN CODEBASE**
-
-- **7/11** Linux-compatible features working (63.6%)
-- **7/18** features Windows-only (platform limitation)
-- **4/11** need minor fixes (optional dependencies)
-
+- All advertised features are present in the repository source code.
+- Several features are Windows-specific by design and require a Windows runtime to exercise (ETW, Registry, certain Win32 forensics APIs).
+- Non-privileged code paths are covered by unit tests (Python test-suite: 30 tests). Continuous integration runs build and test jobs on both Linux and Windows; CI sets `PYTHON_SYS_EXECUTABLE` to support pyo3 tests.
+- Privileged or hardware-dependent features (packet capture/injection, firewall/iptables, registry protection) require elevated privileges and manual verification on appropriate test hosts.
 ---
 
 ## Complete Feature Audit
@@ -196,41 +194,21 @@ injector = get_packet_injector()
 
 ## Final Verdict
 
-### ✅ YES, ALL 18 FEATURES EXIST
+- All 18 advertised features are implemented in the source tree.
+- Several features are Windows-specific by design and require a Windows environment to exercise (ETW, Registry, certain in-memory forensics and self-defense capabilities).
+- Cross-platform core functionality (AI, risk scoring, blockchain audit, P2P mesh, sandboxing, rule engine) is implemented and exercised by unit tests where feasible.
+- Non-privileged functionality is covered by automated tests; privileged or hardware-dependent features require manual, elevated validation on appropriate test hosts.
 
-1. ✅ Kernel-level ETW monitoring (Windows only, by design)
-2. ✅ AI-powered threat assessment with MITRE ATT&CK
-3. ✅ Behavioral risk scoring with dynamic thresholds
-4. ✅ USB device control with allowlist/blocklist
-5. ✅ DNS sinkholing (Windows only, by design)
-6. ✅ Registry protection and monitoring (Windows only, by design)
-7. ✅ In-memory forensics and process scanning (Windows only, by design)
-8. ✅ File integrity monitoring using SHA-256
-9. ✅ VM/sandbox detection (Windows only, by design)
-10. ✅ Self-defense mechanisms (Windows only, by design)
-11. ✅ Clipboard monitoring (Windows only, by design)
-12. ✅ Blockchain audit logging
-13. ✅ P2P threat intelligence sharing
-14. ✅ Virtual sandboxing for untrusted processes
-15. ✅ **Network packet injection capabilities** (newly integrated)
-16. ✅ Web dashboard with real-time monitoring
-17. ✅ System tray integration
-18. ✅ Rule engine with PowerShell support
+Platform notes:
+- Windows-only features depend on Windows APIs and must be validated on Windows.
+- Linux alternatives exist for many capabilities (auditd, /proc, iptables, eBPF), and fallbacks are implemented where practical.
 
-### No Drawbacks
+Testing and CI:
+- Python unit tests (current local suite: 30 tests) pass for non-privileged code paths.
+- Rust builds succeed in release mode; pyo3-linked tests are executed in CI where `PYTHON_SYS_EXECUTABLE` is set.
 
-**Platform Limitations Are Expected:**
-- Windows features use Windows APIs (ETW, Registry, WMI)
-- Linux has equivalent alternatives (auditd, /proc, syslog)
-- Cross-platform core (AI, Risk, Blockchain, P2P, Sandbox) works identically
-
-**All Features Functional:**
-- 7 Windows-only features work perfectly on Windows
-- 11 cross-platform features work on both OS
-- 7/11 Linux features verified working
-- 4/11 need optional dependencies (easily fixed)
-
----
+Operational caveat:
+- Packet capture/injection, firewall/iptables changes and registry protections require elevated privileges and cannot be fully validated by standard CI runners; perform manual verification on dedicated test hosts or VMs.---
 
 ## Installation for Full Feature Set
 
@@ -265,21 +243,15 @@ cd native/c && nmake  # or use gcc on Windows
 
 ---
 
-## Summary for User
+## Summary for user — current, verifiable state
 
-**✅ Mission Accomplished**
+- All 18 advertised features are present in the source code.
+- The native C modules for packet capture/injection have Python bindings and are compiled for Linux; these features require root to exercise.
+- Cross-platform core features (risk scoring, AI analysis, blockchain audit, P2P mesh, sandboxing, rule engine) are implemented and covered by automated tests where practical.
+- Several features are Windows-specific by design and require a Windows runtime to validate (ETW, Registry monitoring, Win32 memory forensics, some self-defense APIs).
+- Non-privileged code paths are covered by the repository test-suite (Python tests: 30 passing locally). Privileged or hardware-dependent features require manual validation on appropriately configured hosts.
 
-1. **All 18 features exist** - Not a single one missing
-2. **Packet injection now working** - C modules compiled, Python wrappers created, UI integrated
-3. **Cross-platform support verified** - 11 features work on both OS natively
-4. **7 Windows-specific features** - These are Windows APIs (can't be made Linux-compatible, by design)
-5. **No drawbacks** - Platform limitations are inherent to OS architecture
-
-**You have a complete, fully-featured security platform.**
-
-The 4 "failures" on Linux are:
-- 2 optional packages not installed (easily fixed)
-- 1 import path issue (trivial fix)
-- 1 already working (Streamlit is running, just not in PATH for verification script)
-
-**Current Status: 63.6% → 100% after installing optional deps** ✅
+Actionable items for full functional verification:
+1. Install optional dependencies noted in the documentation (AI models, system tray libraries) and re-run `verify_features.py`.
+2. Validate privileged features on Windows and Linux test hosts with administrative privileges.
+3. Use CI (GitHub Actions) for cross-platform build/test verification; CI is already configured to run Rust and Python checks on Windows and Linux.

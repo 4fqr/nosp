@@ -594,13 +594,13 @@ Optimize NOSP performance:
 ### NOSP Won't Start
 
 **Error:** "Access denied"
-- **Fix:** Run as Administrator
+- **Fix:** Run as Administrator (Windows) or use `sudo` (Linux).
 
 **Error:** "Port 8080 already in use"
-- **Fix:** Change port with `--port 8081`
+- **Fix:** Change port with `--port 8081` or stop the process holding the port.
 
 **Error:** "Database locked"
-- **Fix:** Close other NOSP instances, delete `nosp.db-journal`
+- **Fix:** Close other NOSP instances, delete `nosp.db-journal` and restart.
 
 ### No Events Captured
 
@@ -632,6 +632,17 @@ Optimize NOSP performance:
 - **Fix:** Enable database archiving
 - **Fix:** Clear old events: `DELETE FROM events WHERE timestamp < datetime('now', '-7 days')`
 - **Fix:** Restart NOSP daily
+
+### Error reporting & developer diagnostics
+
+- All uncaught exceptions are recorded to `nosp_error.log` in the working directory. The log entries are structured and include trace, module, and remediation hints.
+- Use `tail -n 200 nosp_error.log` to inspect recent error reports.
+- When interacting programmatically, prefer `*_safe` APIs; these return `Result` objects to avoid exception propagation in host applications.
+
+### pyo3 / Rust linkage notes
+
+- Building or testing pyo3-backed components requires the Python development headers. If `cargo test` reports undefined Python symbols locally, set `PYTHON_SYS_EXECUTABLE` to the desired interpreter (for example: `export PYTHON_SYS_EXECUTABLE=$(which python3)`) before running `cargo test` or `maturin develop`.
+- GitHub Actions in this repository sets `PYTHON_SYS_EXECUTABLE` automatically; CI jobs run Rust/Python tests on both Linux and Windows.
 
 ## Best Practices
 
@@ -1024,6 +1035,14 @@ sudo aa-disable /usr/bin/python3
 sudo ufw allow 8080/tcp
 sudo ufw enable
 ```
+
+### Developer / Testing
+
+- Run Python unit tests: `pytest -q` (Python tests cover non-privileged code paths; current suite contains 30 tests).
+- Build Rust library: `cargo build --release`.
+- Build/install Python extension: `maturin develop` (requires Python dev headers).
+- If pyo3 tests fail locally, set `PYTHON_SYS_EXECUTABLE=$(which python3)` prior to `cargo test` or rely on CI where this is configured.
+- CI: GitHub Actions executes linting, Python unit tests, Rust build, and pyo3-linked checks on both Linux and Windows.
 
 ### Support Resources
 

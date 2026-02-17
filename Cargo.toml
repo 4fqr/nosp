@@ -46,6 +46,11 @@ clipboard-win = "5.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"
 
+[dev-dependencies]
+tempfile = "3.6"
+# enable pyo3 dev features so test binaries can link/embed Python C-API
+pyo3 = { version = "0.20", features = ["auto-initialize"] }
+
 [profile.release]
 opt-level = 3
 lto = true

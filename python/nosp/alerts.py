@@ -3,20 +3,22 @@ NOSP Alert System
 Audio alerts, text-to-speech, and advanced notification system.
 """
 
-import logging 
-from typing import Dict ,Optional 
-import threading 
-import queue 
+import logging
+from typing import Dict, Optional
+import threading
+import queue
+from .errors import report_exception, graceful, Result
 
-logging .basicConfig (level =logging .INFO )
-logger =logging .getLogger (__name__ )
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-try :
-    import pyttsx3 
-    TTS_AVAILABLE =True 
-except ImportError :
-    TTS_AVAILABLE =False 
-    logger .warning ("⚠ pyttsx3 not available. Install with: pip install pyttsx3")
+try:
+    import pyttsx3
+    TTS_AVAILABLE = True
+except ImportError as e:
+    TTS_AVAILABLE = False
+    logger.warning("⚠ pyttsx3 not available. Install with: pip install pyttsx3")
+    report_exception(e, context="alerts_import")
 
 
 class AudioAlertSystem :
@@ -27,11 +29,11 @@ class AudioAlertSystem :
 
     def __init__ (self ):
         """Initialize the audio alert system."""
-        self .enabled =TTS_AVAILABLE 
-        self .engine =None 
+        self .enabled =TTS_AVAILABLE
+        self .engine =None
         self .alert_queue =queue .Queue ()
-        self .worker_thread =None 
-        self .running =False 
+        self .worker_thread =None
+        self .running =False
 
         if TTS_AVAILABLE :
             try :
@@ -39,14 +41,15 @@ class AudioAlertSystem :
                 self ._configure_engine ()
                 self ._start_worker ()
                 logger .info ("✓ Audio alert system initialized")
-            except Exception as e :
-                logger .error (f"✗ Failed to initialize TTS: {e }")
-                self .enabled =False 
+            except Exception as e:
+                logger.error(f"✗ Failed to initialize TTS: {e}")
+                report_exception(e, context="AudioAlertSystem.__init__")
+                self.enabled = False
 
     def _configure_engine (self ):
         """Configure TTS engine voice and rate."""
         if not self .engine :
-            return 
+            return
 
         try :
             voices =self .engine .getProperty ('voices')
@@ -54,20 +57,21 @@ class AudioAlertSystem :
                 for voice in voices :
                     if 'david'in voice .name .lower ()or 'mark'in voice .name .lower ():
                         self .engine .setProperty ('voice',voice .id )
-                        break 
+                        break
 
             self .engine .setProperty ('rate',150 )
 
             self .engine .setProperty ('volume',0.9 )
-        except Exception as e :
-            logger .error (f"✗ Failed to configure TTS engine: {e }")
+        except Exception as e:
+            logger.error(f"✗ Failed to configure TTS engine: {e}")
+            report_exception(e, context="AudioAlertSystem._configure_engine")
 
     def _start_worker (self ):
         """Start worker thread to process alerts."""
         if self .worker_thread and self .worker_thread .is_alive ():
-            return 
+            return
 
-        self .running =True 
+        self .running =True
         self .worker_thread =threading .Thread (target =self ._process_alerts ,daemon =True )
         self .worker_thread .start ()
 
@@ -81,9 +85,10 @@ class AudioAlertSystem :
                     self .engine .say (message )
                     self .engine .runAndWait ()
             except queue .Empty :
-                continue 
-            except Exception as e :
-                logger .error (f"✗ TTS error: {e }")
+                continue
+            except Exception as e:
+                logger.error(f"✗ TTS error: {e}")
+                report_exception(e, context="AudioAlertSystem._process_alerts")
 
     def speak (self ,message :str ,priority :bool =False ):
         """
@@ -95,16 +100,17 @@ class AudioAlertSystem :
         """
         if not self .enabled :
             logger .info (f"Audio (disabled): {message }")
-            return 
+            return
 
         if priority :
             try :
                 self .engine .say (message )
                 self .engine .runAndWait ()
-            except Exception as e :
-                logger .error (f"✗ Immediate TTS failed: {e }")
-        else :
-            self .alert_queue .put (message )
+            except Exception as e:
+                logger.error(f"✗ Immediate TTS failed: {e}")
+                report_exception(e, context="AudioAlertSystem.speak")
+        else:
+            self.alert_queue.put(message)
 
     def alert_critical_threat (self ,process_name :str ,risk_score :int ):
         """Voice alert for critical threat."""
@@ -143,7 +149,7 @@ class AudioAlertSystem :
 
     def stop (self ):
         """Stop the alert system."""
-        self .running =False 
+        self .running =False
         if self .worker_thread :
             self .worker_thread .join (timeout =2 )
         logger .info ("✓ Audio alert system stopped")
@@ -151,11 +157,11 @@ class AudioAlertSystem :
 
 class AlertPriority :
     """Alert priority levels."""
-    INFO =0 
-    LOW =1 
-    MEDIUM =2 
-    HIGH =3 
-    CRITICAL =4 
+    INFO =0
+    LOW =1
+    MEDIUM =2
+    HIGH =3
+    CRITICAL =4
 
 
 class Alert :
@@ -169,15 +175,15 @@ class Alert :
     process_id :Optional [int ]=None ,
     risk_score :Optional [int ]=None ):
         """Initialize an alert."""
-        self .title =title 
-        self .message =message 
-        self .priority =priority 
-        self .event_id =event_id 
-        self .process_id =process_id 
-        self .risk_score =risk_score 
-        self .timestamp =None 
+        self .title =title
+        self .message =message
+        self .priority =priority
+        self .event_id =event_id
+        self .process_id =process_id
+        self .risk_score =risk_score
+        self .timestamp =None
 
-        from datetime import datetime 
+        from datetime import datetime
         self .timestamp =datetime .now ()
 
     def to_dict (self )->Dict :
@@ -189,7 +195,7 @@ class Alert :
         'event_id':self .event_id ,
         'process_id':self .process_id ,
         'risk_score':self .risk_score ,
-        'timestamp':self .timestamp .isoformat ()if self .timestamp else None 
+        'timestamp':self .timestamp .isoformat ()if self .timestamp else None
         }
 
 
@@ -203,13 +209,14 @@ class AlertManager :
         """Initialize alert manager."""
         self .audio =audio_system or AudioAlertSystem ()
         self .alert_history =[]
-        self .max_history =1000 
+        self .max_history =1000
 
-        try :
-            from nosp .system_tray import NOSPNotifications 
-            self .notifications =NOSPNotifications ()
-        except :
-            self .notifications =None 
+        try:
+            from nosp.system_tray import NOSPNotifications
+            self.notifications = NOSPNotifications()
+        except Exception as e:
+            self.notifications = None
+            report_exception(e, context="AlertManager.__init__")
 
     def send_alert (self ,alert :Alert ):
         """
@@ -218,6 +225,10 @@ class AlertManager :
         Args:
             alert: Alert object to send
         """
+
+    @graceful()
+    def send_alert_safe(self, alert: Alert) -> Result:
+        return self.send_alert(alert)
         logger .warning (f"🚨 {alert .title }: {alert .message }")
 
         self .alert_history .append (alert )
@@ -230,22 +241,22 @@ class AlertManager :
                 title =alert .title ,
                 message =alert .message ,
                 urgency ='critical'if alert .priority ==AlertPriority .CRITICAL else 'normal',
-                timeout =30 if alert .priority ==AlertPriority .CRITICAL else 10 
+                timeout =30 if alert .priority ==AlertPriority .CRITICAL else 10
                 )
 
         if self .audio .enabled and alert .priority >=AlertPriority .HIGH :
             if alert .priority ==AlertPriority .CRITICAL :
                 self .audio .speak (
                 f"Critical alert. {alert .message }",
-                priority =True 
+                priority =True
                 )
             else :
                 self .audio .speak (alert .message ,priority =False )
 
     def alert_process_detected (self ,event :Dict ,risk_score :int ):
         """Alert for detected process."""
-        from pathlib import Path 
-        process_name =Path (event .get ('image','unknown')).name 
+        from pathlib import Path
+        process_name =Path (event .get ('image','unknown')).name
 
         if risk_score >=90 :
             alert =Alert (
@@ -254,7 +265,7 @@ class AlertManager :
             priority =AlertPriority .CRITICAL ,
             event_id =event .get ('id'),
             process_id =event .get ('process_id'),
-            risk_score =risk_score 
+            risk_score =risk_score
             )
         elif risk_score >=60 :
             alert =Alert (
@@ -263,10 +274,10 @@ class AlertManager :
             priority =AlertPriority .HIGH ,
             event_id =event .get ('id'),
             process_id =event .get ('process_id'),
-            risk_score =risk_score 
+            risk_score =risk_score
             )
         else :
-            return 
+            return
 
         self .send_alert (alert )
 
@@ -276,7 +287,7 @@ class AlertManager :
         title ="✅ Threat Neutralized",
         message =f"Process {process_name } (PID: {process_id }) has been terminated",
         priority =AlertPriority .MEDIUM ,
-        process_id =process_id 
+        process_id =process_id
         )
         self .send_alert (alert )
 
@@ -286,7 +297,7 @@ class AlertManager :
             alert =Alert (
             title ="NOSP Monitoring Active",
             message ="Real-time security monitoring is now active",
-            priority =AlertPriority .INFO 
+            priority =AlertPriority .INFO
             )
             if self .audio .enabled :
                 self .audio .alert_monitoring_started ()
@@ -294,7 +305,7 @@ class AlertManager :
             alert =Alert (
             title ="NOSP Monitoring Paused",
             message ="Security monitoring has been paused",
-            priority =AlertPriority .INFO 
+            priority =AlertPriority .INFO
             )
             if self .audio .enabled :
                 self .audio .alert_monitoring_stopped ()

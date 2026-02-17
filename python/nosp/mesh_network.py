@@ -28,33 +28,33 @@ Author: NOSP Team
 Contact: 4fqr5@atomicmail.io
 """
 
-import asyncio 
-import socket 
-import json 
-import time 
-import hashlib 
-import struct 
-from typing import Dict ,List ,Set ,Optional ,Callable 
-from dataclasses import dataclass ,asdict 
-from datetime import datetime 
-from cryptography .hazmat .primitives .ciphers .aead import AESGCM 
-from cryptography .hazmat .primitives import hashes 
-from cryptography .hazmat .primitives .kdf .pbkdf2 import PBKDF2HMAC 
-import secrets 
-import logging 
+import asyncio
+import socket
+import json
+import time
+import hashlib
+import struct
+from typing import Dict, List, Set, Optional, Callable
+from dataclasses import dataclass, asdict
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import secrets
+import logging
+from .errors import report_exception, graceful, Result
 
-logging .basicConfig (level =logging .INFO )
-logger =logging .getLogger (__name__ )
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-DISCOVERY_PORT =41337 
-MESH_PORT =41338 
-BROADCAST_INTERVAL =10 
+DISCOVERY_PORT =41337
+MESH_PORT =41338
+BROADCAST_INTERVAL =10
 PROTOCOL_VERSION ="1.0.0-EVENT-HORIZON"
 MAGIC_BYTES =b"NOSP"
 
 
-@dataclass 
+@dataclass
 class Peer :
     """
     Represents a peer NOSP instance on the network.
@@ -67,15 +67,15 @@ class Peer :
         threat_count: Number of threats reported by this peer
         reputation: Trust score (0-100)
     """
-    node_id :str 
-    hostname :str 
-    ip_address :str 
-    last_seen :float 
-    threat_count :int =0 
-    reputation :int =100 
+    node_id :str
+    hostname :str
+    ip_address :str
+    last_seen :float
+    threat_count :int =0
+    reputation :int =100
 
 
-@dataclass 
+@dataclass
 class ThreatSignal :
     """
     A threat intelligence signal broadcast across the mesh.
@@ -89,13 +89,13 @@ class ThreatSignal :
         timestamp: Detection timestamp
         metadata: Additional context
     """
-    signal_id :str 
-    source_node :str 
-    threat_type :str 
-    threat_value :str 
-    risk_score :int 
-    timestamp :float 
-    metadata :Dict =None 
+    signal_id :str
+    source_node :str
+    threat_type :str
+    threat_value :str
+    risk_score :int
+    timestamp :float
+    metadata :Dict =None
 
 
 class MeshCrypto :
@@ -118,7 +118,7 @@ class MeshCrypto :
         algorithm =hashes .SHA256 (),
         length =32 ,
         salt =b"NOSP-SALT",
-        iterations =100000 
+        iterations =100000
         )
         self .key =kdf .derive (passphrase .encode ())
         self .aesgcm =AESGCM (self .key )
@@ -135,7 +135,7 @@ class MeshCrypto :
         """
         nonce =secrets .token_bytes (12 )
         ciphertext =self .aesgcm .encrypt (nonce ,plaintext ,None )
-        return nonce +ciphertext 
+        return nonce +ciphertext
 
     def decrypt (self ,encrypted :bytes )->Optional [bytes ]:
         """
@@ -151,9 +151,10 @@ class MeshCrypto :
             nonce =encrypted [:12 ]
             ciphertext =encrypted [12 :]
             return self .aesgcm .decrypt (nonce ,ciphertext ,None )
-        except Exception as e :
-            logger .error (f"Decryption failed: {e }")
-            return None 
+        except Exception as e:
+            logger.error(f"Decryption failed: {e}")
+            report_exception(e, context="MeshCrypto.decrypt")
+            return None
 
 
 class MeshNetwork :
@@ -183,12 +184,12 @@ class MeshNetwork :
         self .threat_signals :Dict [str ,ThreatSignal ]={}
         self .threat_consensus :Dict [str ,Set [str ]]={}
 
-        self .on_threat_detected :Optional [Callable ]=None 
-        self .on_consensus_reached :Optional [Callable ]=None 
+        self .on_threat_detected :Optional [Callable ]=None
+        self .on_consensus_reached :Optional [Callable ]=None
 
-        self .running =False 
-        self .discovery_task =None 
-        self .server_task =None 
+        self .running =False
+        self .discovery_task =None
+        self .server_task =None
 
     def _generate_node_id (self )->str :
         """
@@ -200,11 +201,11 @@ class MeshNetwork :
         hostname =socket .gethostname ()
 
         try :
-            import uuid 
+            import uuid
             mac =uuid .getnode ()
             unique_string =f"{hostname }-{mac }"
-        except :
-            unique_string =f"{hostname }-{secrets .token_hex (8 )}"
+        except Exception:
+            unique_string = f"{hostname}-{secrets.token_hex(8)}"
 
         return hashlib .sha256 (unique_string .encode ()).hexdigest ()
 
@@ -220,8 +221,8 @@ class MeshNetwork :
             s .connect (("8.8.8.8",80 ))
             ip =s .getsockname ()[0 ]
             s .close ()
-            return ip 
-        except :
+            return ip
+        except Exception:
             return "127.0.0.1"
 
     async def start (self ):
@@ -230,9 +231,9 @@ class MeshNetwork :
         """
         if self .running :
             logger .warning ("Mesh network already running")
-            return 
+            return
 
-        self .running =True 
+        self .running =True
         logger .info (f"Starting NOSP Hive Mind - Node ID: {self .node_id [:16 ]}...")
 
         self .discovery_task =asyncio .create_task (self ._discovery_loop ())
@@ -245,7 +246,7 @@ class MeshNetwork :
         """
         Stop the mesh network gracefully.
         """
-        self .running =False 
+        self .running =False
 
         if self .discovery_task :
             self .discovery_task .cancel ()
@@ -282,7 +283,7 @@ class MeshNetwork :
 
                 packet_json =json .dumps (discovery_packet ).encode ()
 
-                packet =MAGIC_BYTES +packet_json 
+                packet =MAGIC_BYTES +packet_json
 
                 sock .sendto (packet ,('<broadcast>',DISCOVERY_PORT ))
 
@@ -290,15 +291,16 @@ class MeshNetwork :
                     data ,addr =sock .recvfrom (4096 )
                     asyncio .create_task (self ._handle_discovery_packet (data ,addr [0 ]))
                 except BlockingIOError :
-                    pass 
+                    pass
 
-                await asyncio .sleep (BROADCAST_INTERVAL )
+                await asyncio.sleep(BROADCAST_INTERVAL)
 
-            except Exception as e :
-                logger .error (f"Discovery error: {e }")
-                await asyncio .sleep (BROADCAST_INTERVAL )
+            except Exception as e:
+                logger.error(f"Discovery error: {e}")
+                report_exception(e, context="MeshNetwork._discovery_loop")
+                await asyncio.sleep(BROADCAST_INTERVAL)
 
-    async def _handle_discovery_packet (self ,data :bytes ,source_ip :str ):
+    async def _handle_discovery_packet(self, data: bytes, source_ip: str):
         """
         Process incoming discovery packet from peer.
         
@@ -308,16 +310,16 @@ class MeshNetwork :
         """
         try :
             if not data .startswith (MAGIC_BYTES ):
-                return 
+                return
 
             packet_json =data [len (MAGIC_BYTES ):]
             packet =json .loads (packet_json .decode ())
 
             if packet .get ("type")!="DISCOVERY":
-                return 
+                return
 
             if packet ["node_id"]==self .node_id :
-                return 
+                return
 
             peer =Peer (
             node_id =packet ["node_id"],
@@ -329,10 +331,11 @@ class MeshNetwork :
             if peer .node_id not in self .peers :
                 logger .info (f"New peer discovered: {peer .hostname } ({peer .ip_address })")
 
-            self .peers [peer .node_id ]=peer 
+            self .peers [peer .node_id ]=peer
 
-        except Exception as e :
-            logger .error (f"Error handling discovery packet: {e }")
+        except Exception as e:
+            logger.error(f"Error handling discovery packet: {e}")
+            report_exception(e, context="MeshNetwork._handle_discovery_packet")
 
     async def _start_server (self ):
         """
@@ -341,7 +344,7 @@ class MeshNetwork :
         server =await asyncio .start_server (
         self ._handle_client ,
         '0.0.0.0',
-        MESH_PORT 
+        MESH_PORT
         )
 
         async with server :
@@ -367,15 +370,16 @@ class MeshNetwork :
             decrypted_data =self .crypto .decrypt (encrypted_data )
             if decrypted_data is None :
                 logger .warning (f"Failed to decrypt packet from {addr }")
-                return 
+                return
 
             signal_data =json .loads (decrypted_data .decode ())
             signal =ThreatSignal (**signal_data )
 
             await self ._process_threat_signal (signal )
 
-        except Exception as e :
-            logger .error (f"Error handling client {addr }: {e }")
+        except Exception as e:
+            logger.error(f"Error handling client {addr}: {e}")
+            report_exception(e, context="MeshNetwork._handle_client")
 
         finally :
             writer .close ()
@@ -388,7 +392,7 @@ class MeshNetwork :
         Args:
             signal: Threat signal to process
         """
-        self .threat_signals [signal .signal_id ]=signal 
+        self .threat_signals [signal .signal_id ]=signal
 
         if signal .threat_value not in self .threat_consensus :
             self .threat_consensus [signal .threat_value ]=set ()
@@ -396,7 +400,7 @@ class MeshNetwork :
         self .threat_consensus [signal .threat_value ].add (signal .source_node )
 
         if signal .source_node in self .peers :
-            self .peers [signal .source_node ].threat_count +=1 
+            self .peers [signal .source_node ].threat_count +=1
 
         reporting_nodes =len (self .threat_consensus [signal .threat_value ])
 
@@ -431,15 +435,28 @@ class MeshNetwork :
         metadata =metadata or {}
         )
 
-        self .threat_signals [signal .signal_id ]=signal 
+        self .threat_signals [signal .signal_id ]=signal
 
         for peer in self .peers .values ():
             try :
                 await self ._send_signal_to_peer (peer ,signal )
-            except Exception as e :
-                logger .error (f"Failed to send signal to {peer .hostname }: {e }")
+            except Exception as e:
+                logger.error(f"Failed to send signal to {peer.hostname}: {e}")
+                report_exception(e, context=f"MeshNetwork.broadcast_threat:send_to:{peer.hostname}")
 
         logger .info (f"Broadcast threat: {threat_type }={threat_value } to {len (self .peers )} peers")
+
+    @graceful()
+    def get_peer_count_safe(self) -> Result:
+        return self.get_peer_count()
+
+    @graceful()
+    def get_peers_info_safe(self) -> Result:
+        return self.get_peers_info()
+
+    @graceful()
+    def get_threat_signals_safe(self, limit: int = 100) -> Result:
+        return self.get_threat_signals(limit)
 
     async def _send_signal_to_peer (self ,peer :Peer ,signal :ThreatSignal ):
         """
@@ -454,7 +471,7 @@ class MeshNetwork :
         encrypted_data =self .crypto .encrypt (signal_json )
 
         packet_length =len (encrypted_data )
-        packet =struct .pack ('>I',packet_length )+encrypted_data 
+        packet =struct .pack ('>I',packet_length )+encrypted_data
 
         reader ,writer =await asyncio .open_connection (peer .ip_address ,MESH_PORT )
         writer .write (packet )
@@ -472,7 +489,7 @@ class MeshNetwork :
         current_time =time .time ()
         stale_peers =[
         node_id for node_id ,peer in self .peers .items ()
-        if current_time -peer .last_seen >60 
+        if current_time -peer .last_seen >60
         ]
 
         for node_id in stale_peers :
@@ -513,13 +530,13 @@ class MeshNetwork :
         signals =sorted (
         self .threat_signals .values (),
         key =lambda s :s .timestamp ,
-        reverse =True 
+        reverse =True
         )[:limit ]
 
         return [asdict (signal )for signal in signals ]
 
 
-_mesh_instance :Optional [MeshNetwork ]=None 
+_mesh_instance :Optional [MeshNetwork ]=None
 
 
 def get_mesh ()->MeshNetwork :
@@ -529,10 +546,10 @@ def get_mesh ()->MeshNetwork :
     Returns:
         Global MeshNetwork instance
     """
-    global _mesh_instance 
+    global _mesh_instance
     if _mesh_instance is None :
         _mesh_instance =MeshNetwork ()
-    return _mesh_instance 
+    return _mesh_instance
 
 
 if __name__ =="__main__":
@@ -549,8 +566,8 @@ if __name__ =="__main__":
         def on_consensus (signal :ThreatSignal ):
             print (f"  🚨 CONSENSUS: {signal .threat_value } confirmed by multiple nodes!")
 
-        mesh .on_threat_detected =on_threat 
-        mesh .on_consensus_reached =on_consensus 
+        mesh .on_threat_detected =on_threat
+        mesh .on_consensus_reached =on_consensus
 
         await mesh .start ()
         print (f"\n✓ Hive Mind active (Node: {mesh .node_id [:16 ]}...)")

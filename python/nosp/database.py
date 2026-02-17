@@ -3,15 +3,16 @@ NOSP Database Module
 Handles all SQLite database operations with comprehensive error handling.
 """
 
-import sqlite3 
-import json 
-from datetime import datetime 
-from typing import List ,Dict ,Optional ,Tuple 
-from pathlib import Path 
-import logging 
+import sqlite3
+import json
+from datetime import datetime
+from typing import List ,Dict ,Optional ,Tuple
+from pathlib import Path
+import logging
+from .errors import report_exception, graceful, Result
 
-logging .basicConfig (level =logging .INFO )
-logger =logging .getLogger (__name__ )
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class NOSPDatabase :
@@ -22,18 +23,19 @@ class NOSPDatabase :
 
     def __init__ (self ,db_path :str ="nosp_data/events.db"):
         """Initialize database connection and create tables if needed."""
-        self .db_path =db_path 
+        self .db_path =db_path
 
         Path (db_path ).parent .mkdir (parents =True ,exist_ok =True )
 
         try :
             self .conn =sqlite3 .connect (db_path ,check_same_thread =False )
-            self .conn .row_factory =sqlite3 .Row 
+            self .conn .row_factory =sqlite3 .Row
             self ._initialize_schema ()
             logger .info (f"✓ Database initialized: {db_path }")
-        except sqlite3 .Error as e :
-            logger .error (f"✗ Database initialization failed: {e }")
-            raise 
+        except sqlite3.Error as e:
+            logger.error(f"✗ Database initialization failed: {e}")
+            report_exception(e, context="NOSPDatabase.__init__")
+            raise
 
     def _initialize_schema (self ):
         """Create database tables if they don't exist."""
@@ -99,9 +101,10 @@ class NOSPDatabase :
 
             self .conn .commit ()
             logger .info ("✓ Database schema initialized")
-        except sqlite3 .Error as e :
-            logger .error (f"✗ Schema initialization failed: {e }")
-            raise 
+        except sqlite3.Error as e:
+            logger.error(f"✗ Schema initialization failed: {e}")
+            report_exception(e, context="NOSPDatabase._initialize_schema")
+            raise
 
     def insert_event (self ,event :Dict ,risk_score :int ,
     risk_factors :Optional [List [Tuple [str ,int ,str ]]]=None )->Optional [int ]:
@@ -145,10 +148,10 @@ class NOSPDatabase :
             event .get ('parent_image',''),
             event .get ('parent_command_line',''),
             json .dumps (event .get ('hashes',{})),
-            risk_score 
+            risk_score
             ))
 
-            event_id =cursor .lastrowid 
+            event_id =cursor .lastrowid
 
             if risk_factors :
                 for factor_name ,value ,description in risk_factors :
@@ -158,11 +161,12 @@ class NOSPDatabase :
                     """,(event_id ,factor_name ,value ,description ))
 
             self .conn .commit ()
-            return event_id 
+            return event_id
 
-        except sqlite3 .Error as e :
-            logger .error (f"✗ Failed to insert event: {e }")
-            return None 
+        except sqlite3.Error as e:
+            logger.error(f"✗ Failed to insert event: {e}")
+            report_exception(e, context="NOSPDatabase.insert_event")
+            return None
 
     def update_ai_analysis (self ,event_id :int ,analysis :str )->bool :
         """Update the AI analysis for an event."""
@@ -174,10 +178,11 @@ class NOSPDatabase :
                 WHERE id = ?
             """,(analysis ,event_id ))
             self .conn .commit ()
-            return True 
-        except sqlite3 .Error as e :
-            logger .error (f"✗ Failed to update AI analysis: {e }")
-            return False 
+            return True
+        except sqlite3.Error as e:
+            logger.error(f"✗ Failed to update AI analysis: {e}")
+            report_exception(e, context="NOSPDatabase.update_ai_analysis")
+            return False
 
     def get_recent_events (self ,limit :int =100 ,min_risk :int =0 )->List [Dict ]:
         """Get recent events, optionally filtered by minimum risk score."""
@@ -193,8 +198,9 @@ class NOSPDatabase :
             rows =cursor .fetchall ()
             return [dict (row )for row in rows ]
 
-        except sqlite3 .Error as e :
-            logger .error (f"✗ Failed to retrieve events: {e }")
+        except sqlite3.Error as e:
+            logger.error(f"✗ Failed to retrieve events: {e}")
+            report_exception(e, context="NOSPDatabase.get_recent_events")
             return []
 
     def get_high_risk_unanalyzed (self ,threshold :int =60 ,limit :int =10 )->List [Dict ]:
@@ -211,8 +217,9 @@ class NOSPDatabase :
             rows =cursor .fetchall ()
             return [dict (row )for row in rows ]
 
-        except sqlite3 .Error as e :
-            logger .error (f"✗ Failed to retrieve unanalyzed events: {e }")
+        except sqlite3.Error as e:
+            logger.error(f"✗ Failed to retrieve unanalyzed events: {e}")
+            report_exception(e, context="NOSPDatabase.get_high_risk_unanalyzed")
             return []
 
     def get_statistics (self )->Dict :
@@ -237,10 +244,11 @@ class NOSPDatabase :
             cursor .execute ("SELECT AVG(risk_score) as avg FROM events")
             stats ['avg_risk_score']=round (cursor .fetchone ()['avg']or 0 ,2 )
 
-            return stats 
+            return stats
 
-        except sqlite3 .Error as e :
-            logger .error (f"✗ Failed to get statistics: {e }")
+        except sqlite3.Error as e:
+            logger.error(f"✗ Failed to get statistics: {e}")
+            report_exception(e, context="NOSPDatabase.get_statistics")
             return {}
 
     def log_status (self ,component :str ,status :str ,message :str ="")->bool :
@@ -252,10 +260,11 @@ class NOSPDatabase :
                 VALUES (?, ?, ?)
             """,(component ,status ,message ))
             self .conn .commit ()
-            return True 
-        except sqlite3 .Error as e :
-            logger .error (f"✗ Failed to log status: {e }")
-            return False 
+            return True
+        except sqlite3.Error as e:
+            logger.error(f"✗ Failed to log status: {e}")
+            report_exception(e, context="NOSPDatabase.log_status")
+            return False
 
 
     def get_recent_network_events (self ,limit :int =100 )->List [Dict ]:
@@ -273,9 +282,10 @@ class NOSPDatabase :
             for row in cursor .fetchall ():
                 events .append (dict (row ))
 
-            return events 
-        except sqlite3 .Error as e :
-            logger .error (f"Failed to fetch network events: {e }")
+            return events
+        except sqlite3.Error as e:
+            logger.error(f"Failed to fetch network events: {e}")
+            report_exception(e, context="NOSPDatabase.get_recent_network_events")
             return []
 
     def get_earliest_timestamp (self )->Optional [str ]:
@@ -284,10 +294,11 @@ class NOSPDatabase :
             cursor =self .conn .cursor ()
             cursor .execute ("SELECT MIN(timestamp) FROM events")
             result =cursor .fetchone ()
-            return result [0 ]if result and result [0 ]else None 
-        except sqlite3 .Error as e :
-            logger .error (f"Failed to get earliest timestamp: {e }")
-            return None 
+            return result [0 ]if result and result [0 ]else None
+        except sqlite3.Error as e:
+            logger.error(f"Failed to get earliest timestamp: {e}")
+            report_exception(e, context="NOSPDatabase.get_earliest_timestamp")
+            return None
 
     def get_latest_timestamp (self )->Optional [str ]:
         """Get the latest event timestamp"""
@@ -295,10 +306,11 @@ class NOSPDatabase :
             cursor =self .conn .cursor ()
             cursor .execute ("SELECT MAX(timestamp) FROM events")
             result =cursor .fetchone ()
-            return result [0 ]if result and result [0 ]else None 
-        except sqlite3 .Error as e :
-            logger .error (f"Failed to get latest timestamp: {e }")
-            return None 
+            return result [0 ]if result and result [0 ]else None
+        except sqlite3.Error as e:
+            logger.error(f"Failed to get latest timestamp: {e}")
+            report_exception(e, context="NOSPDatabase.get_latest_timestamp")
+            return None
 
     def get_events_before (self ,timestamp :str ,limit :int =50 )->List [Dict ]:
         """Get events before a specific timestamp"""
@@ -315,10 +327,35 @@ class NOSPDatabase :
             for row in cursor .fetchall ():
                 events .append (dict (row ))
 
-            return events 
-        except sqlite3 .Error as e :
-            logger .error (f"Failed to fetch historical events: {e }")
+            return events
+        except sqlite3.Error as e:
+            logger.error(f"Failed to fetch historical events: {e}")
+            report_exception(e, context="NOSPDatabase.get_events_before")
             return []
+
+    @graceful()
+    def insert_event_safe(self, event: Dict, risk_score: int, risk_factors: Optional[List[Tuple[str, int, str]]] = None) -> Result:
+        return self.insert_event(event, risk_score, risk_factors)
+
+    @graceful()
+    def get_recent_events_safe(self, limit: int = 100, min_risk: int = 0) -> Result:
+        return self.get_recent_events(limit, min_risk)
+
+    @graceful()
+    def update_ai_analysis_safe(self, event_id: int, analysis: str) -> Result:
+        return self.update_ai_analysis(event_id, analysis)
+
+    @graceful()
+    def get_statistics_safe(self) -> Result:
+        return self.get_statistics()
+
+    @graceful()
+    def log_status_safe(self, component: str, status: str, message: str = "") -> Result:
+        return self.log_status(component, status, message)
+
+    @graceful()
+    def get_recent_network_events_safe(self, limit: int = 100) -> Result:
+        return self.get_recent_network_events(limit)
 
     def close (self ):
         """Close database connection."""
@@ -327,3 +364,5 @@ class NOSPDatabase :
             logger .info ("✓ Database connection closed")
         except sqlite3 .Error as e :
             logger .error (f"✗ Failed to close database: {e }")
+            report_exception(e, context="NOSPDatabase.close")
+            report_exception(e, context="NOSPDatabase.close")

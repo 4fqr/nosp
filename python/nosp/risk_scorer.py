@@ -3,9 +3,8 @@ NOSP Risk Scoring Module
 Advanced heuristic-based risk assessment for process events.
 """
 
-from typing import Dict ,List ,Tuple 
-import re 
-from pathlib import Path 
+from typing import Dict ,List ,Tuple
+import re
 
 
 class RiskScorer :
@@ -77,7 +76,7 @@ class RiskScorer :
 
     def __init__ (self ):
         """Initialize the risk scorer."""
-        pass 
+        pass
 
     def calculate_risk (self ,event :Dict )->Tuple [int ,List [Tuple [str ,int ,str ]]]:
         """
@@ -90,70 +89,69 @@ class RiskScorer :
             Tuple of (total_risk_score, list of (factor_name, points, description))
         """
         risk_factors =[]
-        total_score =0 
+        total_score =0
 
         image =event .get ('image','').lower ()
         cmdline =event .get ('command_line','').lower ()
-        parent_image =event .get ('parent_image','').lower ()
-        parent_cmdline =event .get ('parent_command_line','').lower ()
-        user =event .get ('user','').lower ()
+        parent_image = event.get('parent_image', '').lower()
+        user = event.get('user', '').lower()
 
         path_score =self ._check_path_risk (image )
         if path_score >0 :
             risk_factors .append (('suspicious_path',path_score ,
-            f'Process running from suspicious location'))
-            total_score +=path_score 
+            'Process running from suspicious location'))
+            total_score +=path_score
 
         ext_score =self ._check_extension_risk (image )
         if ext_score >0 :
             risk_factors .append (('suspicious_extension',ext_score ,
-            f'Suspicious file type detected'))
-            total_score +=ext_score 
+            'Suspicious file type detected'))
+            total_score +=ext_score
 
         name_score ,name_desc =self ._check_name_risk (image )
         if name_score >0 :
             risk_factors .append (('suspicious_name',name_score ,name_desc ))
-            total_score +=name_score 
+            total_score +=name_score
 
         cmd_score ,cmd_desc =self ._check_cmdline_risk (cmdline )
         if cmd_score >0 :
             risk_factors .append (('suspicious_command',cmd_score ,cmd_desc ))
-            total_score +=cmd_score 
+            total_score +=cmd_score
 
         parent_score ,parent_desc =self ._check_parent_risk (image ,parent_image ,cmdline )
         if parent_score >0 :
             risk_factors .append (('suspicious_parent',parent_score ,parent_desc ))
-            total_score +=parent_score 
+            total_score +=parent_score
 
         user_score =self ._check_user_risk (user ,image )
         if user_score >0 :
             risk_factors .append (('suspicious_user',user_score ,
             'Process running in unusual user context'))
-            total_score +=user_score 
+            total_score +=user_score
 
         hash_score =self ._check_hash_risk (event .get ('hashes',{}))
         if hash_score >0 :
             risk_factors .append (('missing_signature',hash_score ,
             'Process lacks proper digital signatures'))
-            total_score +=hash_score 
+            total_score +=hash_score
 
         total_score =min (total_score ,100 )
 
-        return total_score ,risk_factors 
+        return total_score ,risk_factors
 
     def _check_path_risk (self ,image :str )->int :
         """Check if process path is suspicious."""
         for pattern ,score in self .SUSPICIOUS_PATHS .items ():
             if re .search (pattern ,image ,re .IGNORECASE ):
-                return score 
-        return 0 
+                return score
+        return 0
 
     def _check_extension_risk (self ,image :str )->int :
         """Check if file extension is suspicious."""
         for ext ,score in self .SUSPICIOUS_EXTENSIONS .items ():
             if image .endswith (ext ):
-                return score 
-        return 0 
+                return score
+        return 0
 
     def _check_name_risk (self ,image :str )->Tuple [int ,str ]:
         """Check if process name matches known hacking tools."""
@@ -164,51 +162,57 @@ class RiskScorer :
 
     def _check_cmdline_risk (self ,cmdline :str )->Tuple [int ,str ]:
         """Check for suspicious command line patterns."""
-        total_score =0 
+        total_score =0
         descriptions =[]
 
         for pattern ,score in self .SUSPICIOUS_CMDLINE_PATTERNS .items ():
             if re .search (pattern ,cmdline ,re .IGNORECASE ):
-                total_score +=score 
+                total_score +=score
                 descriptions .append (pattern )
 
         if descriptions :
             desc =f'Suspicious command patterns: {", ".join (descriptions [:3 ])}'
-            return total_score ,desc 
+            return total_score ,desc
         return 0 ,''
 
-    def _check_parent_risk (self ,image :str ,parent_image :str ,cmdline :str )->Tuple [int ,str ]:
+    def _check_parent_risk(self, image: str, parent_image: str, cmdline: str) -> Tuple[int, str]:
         """Check parent-child process relationship."""
-        if 'powershell'in image and any (app in parent_image for app in ['winword','excel','outlook']):
-            return 35 ,'PowerShell spawned by Office application'
+        if 'powershell' in image and any(
+            app in parent_image for app in ['winword', 'excel', 'outlook']
+        ):
+            return 35, 'PowerShell spawned by Office application'
 
-        if any (script in image for script in ['wscript','cscript','mshta'])and any (app in parent_image for app in ['winword','excel','outlook']):
-            return 40 ,'Script engine spawned by Office application'
+        if any(script in image for script in ['wscript', 'cscript', 'mshta']) and any(
+            app in parent_image for app in ['winword', 'excel', 'outlook']
+        ):
+            return 40, 'Script engine spawned by Office application'
 
-        if 'cmd.exe'in image and parent_image and not any (trusted in parent_image for trusted in self .TRUSTED_PARENTS ):
-            return 10 ,'cmd.exe spawned by non-standard parent'
+        if 'cmd.exe' in image and parent_image and not any(
+            trusted in parent_image for trusted in self.TRUSTED_PARENTS
+        ):
+            return 10, 'cmd.exe spawned by non-standard parent'
 
-        if 'powershell'in image and 'cmd.exe'in parent_image and '-enc'in cmdline :
-            return 30 ,'Encoded PowerShell from cmd.exe'
+        if 'powershell' in image and 'cmd.exe' in parent_image and '-enc' in cmdline:
+            return 30, 'Encoded PowerShell from cmd.exe'
 
-        return 0 ,''
+        return 0, ''
 
     def _check_user_risk (self ,user :str ,image :str )->int :
         """Check user context for anomalies."""
         system_processes =['smss.exe','csrss.exe','wininit.exe','services.exe']
         if any (proc in image for proc in system_processes )and 'system'not in user :
-            return 30 
+            return 30
 
         if 'system'in user and any (app in image for app in ['notepad','calc','mspaint']):
-            return 15 
+            return 15
 
-        return 0 
+        return 0
 
     def _check_hash_risk (self ,hashes :Dict )->int :
         """Check for missing or suspicious hashes."""
         if not hashes or len (hashes )==0 :
-            return 10 
-        return 0 
+            return 10
+        return 0
 
     def get_risk_level (self ,score :int )->str :
         """Convert numeric score to risk level."""

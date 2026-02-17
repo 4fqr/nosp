@@ -25,6 +25,16 @@ jobs:
         profile: minimal
         override: true
     
+    - name: Set up Python for pyo3-linked tests
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Export PYTHON_SYS_EXECUTABLE (used by pyo3)
+      run: |
+        echo "PYTHON_SYS_EXECUTABLE=$(which python)" >> $GITHUB_ENV
+
     - name: Cache Rust dependencies
       uses: actions/cache@v3
       with:
@@ -41,7 +51,9 @@ jobs:
       continue-on-error: true
     
     - name: Run Rust tests
-      run: cargo test --verbose
+      run: cargo test --verbose --
+      env:
+        PYTHON_SYS_EXECUTABLE: ${{ env.PYTHON_SYS_EXECUTABLE }}
     
     - name: Build Rust release
       run: cargo build --release --verbose

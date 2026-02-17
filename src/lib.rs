@@ -22,10 +22,7 @@ use windows::Win32::Storage::FileSystem::*;
 #[cfg(target_os = "windows")]
 use windows::Win32::System::Registry::*;
 
-use chrono::{DateTime, Utc};
 use sha2::{Sha256, Digest};
-use zip::ZipWriter;
-use zip::write::FileOptions;
 
 #[cfg(target_os = "windows")]
 mod memory_analysis;
@@ -157,6 +154,10 @@ fn parse_event_data(xml_content: &str) -> Result<SysmonEvent, NOSPError> {
     })
 }
 
+fn sanitize_string(input: &str) -> String {
+    input.chars().map(|c| if c == '\0' { ' ' } else { c }).collect()
+}
+
 #[cfg(target_os = "windows")]
 #[pyfunction]
 fn get_sysmon_events(py: Python, max_events: Option<u32>) -> PyResult<Vec<PyObject>> {
@@ -266,7 +267,6 @@ fn is_admin() -> PyResult<bool> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        use std::os::unix::fs::PermissionsExt;
         Ok(unsafe { libc::geteuid() } == 0)
     }
 }
@@ -660,7 +660,7 @@ fn block_ip_firewall(ip_address: String, _rule_name: String) -> PyResult<bool> {
     
 
     let output = Command::new("iptables")
-        .args(&["-A", "OUTPUT", "-d", &ip_address, "-j", "DROP"])
+        .args(&["-A", "OUTPUT", "-d", ip_address.as_str(), "-j", "DROP"])
         .output();
     
     match output {
@@ -964,7 +964,7 @@ mod tests {
 
     #[test]
     fn test_event_parsing_basic() {
-        let events = get_sysmon_events(1);
+        let events = Python::with_gil(|py| get_sysmon_events(py, Some(1)));
 
         assert!(events.is_ok(), "get_sysmon_events should return Ok");
 
@@ -1000,7 +1000,7 @@ mod tests {
 
     #[test]
     fn test_registry_autostart_scan() {
-        let result = scan_registry_autostart();
+        let result = Python::with_gil(scan_registry_autostart);
 
         if cfg!(target_os = "windows") {
             assert!(result.is_ok(), "Registry scan should succeed on Windows");
@@ -1016,7 +1016,8 @@ mod tests {
 
     #[test]
     fn test_quarantine_file_nonexistent() {
-        let result = quarantine_file("nonexistent_file_xyz.bin".to_string());
+        let tmp = TempDir::new().unwrap();
+        let result = quarantine_file("nonexistent_file_xyz.bin".to_string(), tmp.path().to_str().unwrap().to_string());
         assert!(result.is_err(), "Should return error for nonexistent file");
     }
 }

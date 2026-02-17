@@ -87,6 +87,18 @@ sudo python main.py
 
 ## Python Module Usage
 
+### Safe / developer-facing APIs
+
+- Many public APIs expose a `*_safe` variant that returns a `Result` object instead of raising an exception. The `Result` object has `ok` (bool) and either `value` or `error` fields.
+- Use `*_safe` when you require deterministic, programmatic handling of failures. Unexpected exceptions are written to `nosp_error.log` in the working directory.
+
+Example:
+```python
+res = usb_control.block_device_safe("VID_1234&PID_5678")
+if not res.ok:
+    print(res.error['message'])
+```
+
 ### Platform Compatibility Module
 
 ```python

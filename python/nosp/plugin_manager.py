@@ -3,26 +3,28 @@ NOSP vOMEGA - Plugin System
 Extensible architecture for custom event processors and analyzers
 """
 
-import importlib .util 
-import inspect 
-import logging 
-from typing import Dict ,List ,Any ,Callable ,Optional 
-from pathlib import Path 
-from dataclasses import dataclass 
-import traceback 
+import importlib.util
+import inspect
+import logging
+from typing import Dict, List, Any, Optional
+from pathlib import Path
+from dataclasses import dataclass
+import traceback
 
-logger =logging .getLogger (__name__ )
+from .errors import report_exception, graceful, Result
+
+logger = logging.getLogger(__name__)
 
 
-@dataclass 
+@dataclass
 class PluginInfo :
     """Metadata about a loaded plugin"""
-    name :str 
-    version :str 
-    author :str 
-    description :str 
-    file_path :str 
-    enabled :bool =True 
+    name :str
+    version :str
+    author :str
+    description :str
+    file_path :str
+    enabled :bool =True
 
 
 class PluginBase :
@@ -47,11 +49,11 @@ class PluginBase :
 
     def on_init (self ):
         """Called when plugin is loaded"""
-        pass 
+        pass
 
     def on_shutdown (self ):
         """Called when plugin is unloaded"""
-        pass 
+        pass
 
     def on_event (self ,event :Dict [str ,Any ])->Optional [Dict [str ,Any ]]:
         """
@@ -63,7 +65,7 @@ class PluginBase :
         Returns:
             Modified event dictionary, or None to filter event out
         """
-        return event 
+        return event
 
 
 class PluginManager :
@@ -90,7 +92,7 @@ class PluginManager :
         'enabled':0 ,
         'disabled':0 ,
         'failed':0 ,
-        'events_processed':0 
+        'events_processed':0
         }
 
         self ._create_example_plugins ()
@@ -110,12 +112,12 @@ class PluginManager :
         try :
             spec =importlib .util .spec_from_file_location (
             plugin_path .stem ,
-            plugin_path 
+            plugin_path
             )
 
             if spec is None or spec .loader is None :
                 logger .error (f"Failed to load plugin spec: {plugin_path }")
-                return False 
+                return False
 
             module =importlib .util .module_from_spec (spec )
             spec .loader .exec_module (module )
@@ -127,7 +129,7 @@ class PluginManager :
 
             if not plugin_classes :
                 logger .warning (f"No plugin classes found in {plugin_path }")
-                return False 
+                return False
 
             plugin_class =plugin_classes [0 ]
             plugin =plugin_class ()
@@ -135,28 +137,29 @@ class PluginManager :
             info =plugin .get_info ()
             plugin_name =info ['name']
 
-            self .plugins [plugin_name ]=plugin 
+            self .plugins [plugin_name ]=plugin
             self .plugin_info [plugin_name ]=PluginInfo (
             name =plugin_name ,
             version =info .get ('version','1.0'),
             author =info .get ('author','Unknown'),
             description =info .get ('description','No description'),
             file_path =str (plugin_path ),
-            enabled =True 
+            enabled =True
             )
 
             plugin .on_init ()
 
             logger .info (f"✓ Loaded plugin: {plugin_name } v{info .get ('version','1.0')}")
-            self .stats ['loaded']+=1 
-            self .stats ['enabled']+=1 
-            return True 
+            self .stats ['loaded']+=1
+            self .stats ['enabled']+=1
+            return True
 
-        except Exception as e :
-            logger .error (f"Failed to load plugin {plugin_path }: {e }")
-            logger .debug (traceback .format_exc ())
-            self .stats ['failed']+=1 
-            return False 
+        except Exception as e:
+            logger.error(f"Failed to load plugin {plugin_path}: {e}")
+            logger.debug(traceback.format_exc())
+            report_exception(e, context=f"load_plugin:{plugin_path}")
+            self.stats['failed'] += 1
+            return False
 
     def load_all_plugins (self )->int :
         """
@@ -165,25 +168,25 @@ class PluginManager :
         Returns:
             Number of plugins loaded
         """
-        loaded =0 
+        loaded =0
 
         plugin_files =list (self .plugins_dir .glob ("*.py"))
 
         if not plugin_files :
             logger .info ("No plugins found in plugins directory")
-            return 0 
+            return 0
 
         logger .info (f"Loading plugins from {self .plugins_dir }...")
 
         for plugin_file in plugin_files :
             if plugin_file .name .startswith ('_'):
-                continue 
+                continue
 
             if self .load_plugin (plugin_file ):
-                loaded +=1 
+                loaded +=1
 
         logger .info (f"Loaded {loaded }/{len (plugin_files )} plugins")
-        return loaded 
+        return loaded
 
     def reload_plugins (self )->int :
         """
@@ -195,10 +198,10 @@ class PluginManager :
         logger .info ("Hot-reloading plugins...")
 
         for plugin_name ,plugin in self .plugins .items ():
-            try :
-                plugin .on_shutdown ()
-            except :
-                pass 
+            try:
+                plugin.on_shutdown()
+            except Exception:
+                pass
 
         self .plugins .clear ()
         self .plugin_info .clear ()
@@ -215,28 +218,28 @@ class PluginManager :
     def enable_plugin (self ,plugin_name :str )->bool :
         """Enable a plugin"""
         if plugin_name not in self .plugin_info :
-            return False 
+            return False
 
         if not self .plugin_info [plugin_name ].enabled :
-            self .plugin_info [plugin_name ].enabled =True 
-            self .stats ['enabled']+=1 
-            self .stats ['disabled']-=1 
+            self .plugin_info [plugin_name ].enabled =True
+            self .stats ['enabled']+=1
+            self .stats ['disabled']-=1
             logger .info (f"Enabled plugin: {plugin_name }")
 
-        return True 
+        return True
 
     def disable_plugin (self ,plugin_name :str )->bool :
         """Disable a plugin"""
         if plugin_name not in self .plugin_info :
-            return False 
+            return False
 
         if self .plugin_info [plugin_name ].enabled :
-            self .plugin_info [plugin_name ].enabled =False 
-            self .stats ['enabled']-=1 
-            self .stats ['disabled']+=1 
+            self .plugin_info [plugin_name ].enabled =False
+            self .stats ['enabled']-=1
+            self .stats ['disabled']+=1
             logger .info (f"Disabled plugin: {plugin_name }")
 
-        return True 
+        return True
 
     def process_event (self ,event :Dict [str ,Any ])->Optional [Dict [str ,Any ]]:
         """
@@ -248,27 +251,27 @@ class PluginManager :
         Returns:
             Modified event, or None if filtered out
         """
-        self .stats ['events_processed']+=1 
+        self .stats ['events_processed']+=1
 
-        current_event =event 
+        current_event =event
 
         for plugin_name ,plugin in self .plugins .items ():
             if not self .plugin_info [plugin_name ].enabled :
-                continue 
+                continue
 
             try :
                 current_event =plugin .on_event (current_event )
 
                 if current_event is None :
                     logger .debug (f"Event filtered by plugin: {plugin_name }")
-                    return None 
+                    return None
 
             except Exception as e :
                 logger .error (f"Plugin {plugin_name } failed: {e }")
                 logger .debug (traceback .format_exc ())
-                continue 
+                continue
 
-        return current_event 
+        return current_event
 
     def get_plugins_info (self )->List [Dict [str ,Any ]]:
         """Get information about all loaded plugins"""
@@ -279,10 +282,34 @@ class PluginManager :
         'author':info .author ,
         'description':info .description ,
         'enabled':info .enabled ,
-        'file_path':info .file_path 
+        'file_path':info .file_path
         }
         for info in self .plugin_info .values ()
         ]
+
+    @graceful()
+    def load_plugin_safe(self, plugin_path: Path) -> Result:
+        return self.load_plugin(plugin_path)
+
+    @graceful()
+    def load_all_plugins_safe(self) -> Result:
+        return self.load_all_plugins()
+
+    @graceful()
+    def process_event_safe(self, event: Dict[str, Any]) -> Result:
+        return self.process_event(event)
+
+    @graceful()
+    def enable_plugin_safe(self, plugin_name: str) -> Result:
+        return self.enable_plugin(plugin_name)
+
+    @graceful()
+    def disable_plugin_safe(self, plugin_name: str) -> Result:
+        return self.disable_plugin(plugin_name)
+
+    @graceful()
+    def get_plugins_info_safe(self) -> Result:
+        return self.get_plugins_info()
 
     def get_stats (self )->Dict [str ,int ]:
         """Get plugin system statistics"""

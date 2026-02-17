@@ -8,14 +8,15 @@ Python bindings for high-performance C modules:
 - Pattern matching (malware signatures)
 """
 
-import ctypes 
-import platform 
-import os 
-from pathlib import Path 
-from typing import Optional ,Tuple ,List 
-import logging 
+import ctypes
+import platform
+import os
+from pathlib import Path
+from typing import Optional ,List
+import logging
+from .errors import report_exception, graceful, Result
 
-logger =logging .getLogger (__name__ )
+logger = logging.getLogger(__name__)
 
 NATIVE_DIR =Path (__file__ ).parent .parent .parent /"native"/"c"
 
@@ -62,8 +63,8 @@ class PacketCapture :
     """
 
     def __init__ (self ):
-        self .lib =None 
-        self .ctx =None 
+        self .lib =None
+        self .ctx =None
         self ._load_library ()
 
     def _load_library (self ):
@@ -72,25 +73,26 @@ class PacketCapture :
 
         if not lib_path .exists ():
             logger .warning (f"Packet capture library not found: {lib_path }")
-            return 
+            return
 
         try :
             self .lib =ctypes .CDLL (str (lib_path ))
 
-            self .lib .capture_init .restype =ctypes .c_void_p 
+            self .lib .capture_init .restype =ctypes .c_void_p
             self .lib .capture_start .argtypes =[ctypes .c_void_p ,ctypes .c_char_p ]
-            self .lib .capture_start .restype =ctypes .c_int 
+            self .lib .capture_start .restype =ctypes .c_int
             self .lib .capture_packets .argtypes =[ctypes .c_void_p ,ctypes .c_int ,ctypes .c_double ]
-            self .lib .capture_packets .restype =ctypes .c_int 
+            self .lib .capture_packets .restype =ctypes .c_int
             self .lib .capture_get_packets .argtypes =[ctypes .c_void_p ,ctypes .POINTER (ctypes .c_int )]
             self .lib .capture_get_packets .restype =ctypes .POINTER (PacketInfo )
             self .lib .capture_stop .argtypes =[ctypes .c_void_p ]
             self .lib .capture_free .argtypes =[ctypes .c_void_p ]
 
             logger .info ("✓ Packet capture library loaded")
-        except Exception as e :
-            logger .error (f"Failed to load packet capture library: {e }")
-            self .lib =None 
+        except Exception as e:
+            logger.error(f"Failed to load packet capture library: {e}")
+            report_exception(e, context="PacketCapture._load_library")
+            self.lib = None
 
     def start (self ,interface :Optional [str ]=None )->bool :
         """
@@ -103,22 +105,26 @@ class PacketCapture :
             True if started successfully
         """
         if not self .lib :
-            return False 
+            return False
 
         self .ctx =self .lib .capture_init ()
-        if not self .ctx :
-            logger .error ("Failed to initialize capture context")
-            return False 
+        if not self.ctx:
+            err = RuntimeError("Failed to initialize capture context")
+            logger.error(str(err))
+            report_exception(err, context="PacketCapture.start")
+            return False
 
-        interface_bytes =interface .encode ('utf-8')if interface else None 
+        interface_bytes =interface .encode ('utf-8')if interface else None
         result =self .lib .capture_start (self .ctx ,interface_bytes )
 
-        if result !=0 :
-            logger .error ("Failed to start packet capture (need root/admin)")
-            return False 
+        if result != 0:
+            err = PermissionError("Failed to start packet capture (need root/admin)")
+            logger.error(str(err))
+            report_exception(err, context="PacketCapture.start")
+            return False
 
         logger .info ("✓ Packet capture started")
-        return True 
+        return True
 
     def capture (self ,max_packets :int =100 ,timeout :float =1.0 )->List [dict ]:
         """
@@ -156,18 +162,33 @@ class PacketCapture :
             'dst_port':pkt .dest_port ,
             'protocol':pkt .protocol ,
             'length':pkt .length ,
-            'flags':pkt .flags 
+            'flags':pkt .flags
             })
 
-        return results 
+        return results
 
     def stop (self ):
         """Stop packet capture"""
         if self .lib and self .ctx :
             self .lib .capture_stop (self .ctx )
             self .lib .capture_free (self .ctx )
-            self .ctx =None 
+            self .ctx =None
             logger .info ("✓ Packet capture stopped")
+
+    @graceful()
+    def start_safe(self, interface: Optional[str] = None) -> Result:
+        """Safe wrapper that returns a Result for start()."""
+        return self.start(interface)
+
+    @graceful()
+    def capture_safe(self, max_packets: int = 100, timeout: float = 1.0) -> Result:
+        """Safe wrapper that returns a Result for capture()."""
+        return self.capture(max_packets, timeout)
+
+    @graceful()
+    def stop_safe(self) -> Result:
+        """Safe wrapper that returns a Result for stop()."""
+        return self.stop()
 
 
 class PacketInjector :
@@ -182,7 +203,7 @@ class PacketInjector :
     """
 
     def __init__ (self ):
-        self .lib =None 
+        self .lib =None
         self .ctx =InjectorContext ()
         self ._load_library ()
 
@@ -192,34 +213,35 @@ class PacketInjector :
 
         if not lib_path .exists ():
             logger .warning (f"Packet injector library not found: {lib_path }")
-            return 
+            return
 
         try :
             self .lib =ctypes .CDLL (str (lib_path ))
 
             self .lib .injector_init .argtypes =[ctypes .POINTER (InjectorContext )]
-            self .lib .injector_init .restype =ctypes .c_int 
+            self .lib .injector_init .restype =ctypes .c_int
             self .lib .injector_cleanup .argtypes =[ctypes .POINTER (InjectorContext )]
             self .lib .inject_tcp_rst .argtypes =[
             ctypes .POINTER (InjectorContext ),
             ctypes .c_char_p ,ctypes .c_char_p ,
             ctypes .c_uint16 ,ctypes .c_uint16 ,
-            ctypes .c_uint32 
+            ctypes .c_uint32
             ]
-            self .lib .inject_tcp_rst .restype =ctypes .c_int 
+            self .lib .inject_tcp_rst .restype =ctypes .c_int
             self .lib .inject_bidirectional_rst .argtypes =[
             ctypes .POINTER (InjectorContext ),
             ctypes .c_char_p ,ctypes .c_char_p ,
-            ctypes .c_uint16 ,ctypes .c_uint16 
+            ctypes .c_uint16 ,ctypes .c_uint16
             ]
-            self .lib .inject_bidirectional_rst .restype =ctypes .c_int 
+            self .lib .inject_bidirectional_rst .restype =ctypes .c_int
             self .lib .injector_get_stats .argtypes =[ctypes .POINTER (InjectorContext )]
-            self .lib .injector_get_stats .restype =ctypes .c_uint64 
+            self .lib .injector_get_stats .restype =ctypes .c_uint64
 
             logger .info ("✓ Packet injector library loaded")
-        except Exception as e :
-            logger .error (f"Failed to load packet injector library: {e }")
-            self .lib =None 
+        except Exception as e:
+            logger.error(f"Failed to load packet injector library: {e}")
+            report_exception(e, context="PacketInjector._load_library")
+            self .lib =None
 
     def initialize (self )->bool :
         """
@@ -229,16 +251,18 @@ class PacketInjector :
             True if initialized successfully
         """
         if not self .lib :
-            return False 
+            return False
 
         result =self .lib .injector_init (ctypes .byref (self .ctx ))
 
-        if result !=0 :
-            logger .error ("Failed to initialize injector (need root/admin)")
-            return False 
+        if result != 0:
+            err = PermissionError("Failed to initialize injector (need root/admin)")
+            logger.error(str(err))
+            report_exception(err, context="PacketInjector.initialize")
+            return False
 
         logger .info ("✓ Packet injector initialized")
-        return True 
+        return True
 
     def inject_rst (self ,src_ip :str ,dst_ip :str ,
     src_port :int ,dst_port :int ,
@@ -257,7 +281,7 @@ class PacketInjector :
             True if injected successfully
         """
         if not self .lib or not self .ctx .is_initialized :
-            return False 
+            return False
 
         result =self .lib .inject_tcp_rst (
         ctypes .byref (self .ctx ),
@@ -265,15 +289,17 @@ class PacketInjector :
         dst_ip .encode ('utf-8'),
         src_port ,
         dst_port ,
-        seq_num 
+        seq_num
         )
 
-        if result !=0 :
-            logger .error ("Failed to inject RST packet")
-            return False 
+        if result != 0:
+            err = RuntimeError("Failed to inject RST packet")
+            logger.error(str(err))
+            report_exception(err, context="PacketInjector.inject_rst")
+            return False
 
         logger .info (f"✓ Injected RST: {src_ip }:{src_port } -> {dst_ip }:{dst_port }")
-        return True 
+        return True
 
     def kill_connection (self ,local_ip :str ,remote_ip :str ,
     local_port :int ,remote_port :int )->bool :
@@ -290,22 +316,24 @@ class PacketInjector :
             True if killed successfully
         """
         if not self .lib or not self .ctx .is_initialized :
-            return False 
+            return False
 
         result =self .lib .inject_bidirectional_rst (
         ctypes .byref (self .ctx ),
         local_ip .encode ('utf-8'),
         remote_ip .encode ('utf-8'),
         local_port ,
-        remote_port 
+        remote_port
         )
 
-        if result !=0 :
-            logger .error ("Failed to kill connection")
-            return False 
+        if result != 0:
+            err = RuntimeError("Failed to kill connection")
+            logger.error(str(err))
+            report_exception(err, context="PacketInjector.kill_connection")
+            return False
 
         logger .info (f"✓ Connection killed: {local_ip }:{local_port } <-> {remote_ip }:{remote_port }")
-        return True 
+        return True
 
     def get_stats (self )->int :
         """
@@ -315,7 +343,7 @@ class PacketInjector :
             Packet injection count
         """
         if not self .lib or not self .ctx .is_initialized :
-            return 0 
+            return 0
 
         return self .lib .injector_get_stats (ctypes .byref (self .ctx ))
 
@@ -325,29 +353,54 @@ class PacketInjector :
             self .lib .injector_cleanup (ctypes .byref (self .ctx ))
             logger .info ("✓ Packet injector cleaned up")
 
+    @graceful()
+    def initialize_safe(self) -> Result:
+        """Safe wrapper for initialize()."""
+        return self.initialize()
 
-_capture_instance :Optional [PacketCapture ]=None 
-_injector_instance :Optional [PacketInjector ]=None 
+    @graceful()
+    def inject_rst_safe(self, src_ip: str, dst_ip: str, src_port: int, dst_port: int, seq_num: int = 0) -> Result:
+        """Safe wrapper for inject_rst()."""
+        return self.inject_rst(src_ip, dst_ip, src_port, dst_port, seq_num)
+
+    @graceful()
+    def kill_connection_safe(self, local_ip: str, remote_ip: str, local_port: int, remote_port: int) -> Result:
+        """Safe wrapper for kill_connection()."""
+        return self.kill_connection(local_ip, remote_ip, local_port, remote_port)
+
+    @graceful()
+    def get_stats_safe(self) -> Result:
+        """Safe wrapper for get_stats()."""
+        return self.get_stats()
+
+    @graceful()
+    def cleanup_safe(self) -> Result:
+        """Safe wrapper for cleanup()."""
+        return self.cleanup()
+
+
+_capture_instance :Optional [PacketCapture ]=None
+_injector_instance :Optional [PacketInjector ]=None
 
 
 def get_packet_capture ()->PacketCapture :
     """Get global packet capture instance"""
-    global _capture_instance 
+    global _capture_instance
     if _capture_instance is None :
         _capture_instance =PacketCapture ()
-    return _capture_instance 
+    return _capture_instance
 
 
 def get_packet_injector ()->PacketInjector :
     """Get global packet injector instance"""
-    global _injector_instance 
+    global _injector_instance
     if _injector_instance is None :
         _injector_instance =PacketInjector ()
-    return _injector_instance 
+    return _injector_instance
 
 
 if __name__ =="__main__":
-    import sys 
+    import sys
 
     print ("NOSP Native C Module Test")
     print ("="*60 )

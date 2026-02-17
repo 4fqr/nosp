@@ -24,6 +24,11 @@ Cross-Platform Network Observation Security Platform
 
 NOSP vAPEX is a real-time security monitoring platform that provides comprehensive threat detection across Windows and Linux systems. This guide covers all 18 features with complete examples for both operating systems.
 
+Developer / test summary:
+- Unit tests: `pytest -q` (current Python test-suite covers non-privileged flows).
+- Build Rust/Python extension: `maturin develop` or `cargo build --release` (Python development headers required).
+- CI: GitHub Actions runs builds and tests on both Linux and Windows; CI sets `PYTHON_SYS_EXECUTABLE` to support pyo3 tests.
+
 ### Platform Compatibility Matrix
 
 | Feature | Windows | Linux | Requires Root/Admin |

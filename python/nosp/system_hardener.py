@@ -3,24 +3,23 @@ NOSP vAPEX - System Hardening Module
 Automatic Windows security auditing and hardening via PowerShell
 """
 
-import subprocess 
-import logging 
-from typing import Dict ,List ,Tuple ,Optional 
-from dataclasses import dataclass 
-import re 
+import subprocess
+import logging
+from typing import Dict ,List ,Tuple ,Optional
+from dataclasses import dataclass
 
 logger =logging .getLogger (__name__ )
 
 
-@dataclass 
+@dataclass
 class SecurityCheck :
     """Represents a single security check"""
-    name :str 
-    description :str 
-    check_command :str 
-    fix_command :str 
-    expected_value :str 
-    severity :str 
+    name :str
+    description :str
+    check_command :str
+    fix_command :str
+    expected_value :str
+    severity :str
 
 
 class SystemHardener :
@@ -94,21 +93,30 @@ class SystemHardener :
         expected_value ="False",
         severity ="high"
         ),
-        SecurityCheck (
-        name ="UAC (User Account Control)",
-        description ="Ensures UAC prompts are enabled",
-        check_command ="(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System').EnableLUA",
-        fix_command ="Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' -Name EnableLUA -Value 1",
-        expected_value ="1",
-        severity ="critical"
+        SecurityCheck(
+            name="UAC (User Account Control)",
+            description="Ensures UAC prompts are enabled",
+            check_command=(
+                "(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System')"
+                ".EnableLUA"
+            ),
+            fix_command=(
+                "Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' "
+                "-Name EnableLUA -Value 1"
+            ),
+            expected_value="1",
+            severity="critical",
         ),
-        SecurityCheck (
-        name ="Automatic Updates",
-        description ="Ensures Windows Update automatic installation is enabled",
-        check_command ="(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' -ErrorAction SilentlyContinue).AUOptions",
-        fix_command ="# Note: Managed via Group Policy or Settings app",
-        expected_value ="4",
-        severity ="medium"
+        SecurityCheck(
+            name="Automatic Updates",
+            description="Ensures Windows Update automatic installation is enabled",
+            check_command=(
+                "(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU' "
+                "-ErrorAction SilentlyContinue).AUOptions"
+            ),
+            fix_command="# Note: Managed via Group Policy or Settings app",
+            expected_value="4",
+            severity="medium",
         ),
         SecurityCheck (
         name ="SMBv1 Protocol",
@@ -118,13 +126,21 @@ class SystemHardener :
         expected_value ="False",
         severity ="high"
         ),
-        SecurityCheck (
-        name ="Remote Desktop",
-        description ="Checks if RDP is enabled (should be disabled unless needed)",
-        check_command ="(Get-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server').fDenyTSConnections",
-        fix_command ="Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' -Name fDenyTSConnections -Value 1",
-        expected_value ="1",
-        severity ="medium"
+        SecurityCheck(
+            name="Remote Desktop",
+            description=(
+                "Checks if RDP is enabled (should be disabled unless needed)"
+            ),
+            check_command=(
+                "(Get-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server')"
+                ".fDenyTSConnections"
+            ),
+            fix_command=(
+                "Set-ItemProperty -Path 'HKLM:\\System\\CurrentControlSet\\Control\\Terminal Server' "
+                "-Name fDenyTSConnections -Value 1"
+            ),
+            expected_value="1",
+            severity="medium",
         )
         ]
 
@@ -140,14 +156,14 @@ class SystemHardener :
             ["powershell","-ExecutionPolicy","Bypass","-Command",command ],
             capture_output =True ,
             text =True ,
-            timeout =10 
+            timeout =10
             )
 
-            success =result .returncode ==0 
+            success =result .returncode ==0
             stdout =result .stdout .strip ()
             stderr =result .stderr .strip ()
 
-            return success ,stdout ,stderr 
+            return success ,stdout ,stderr
 
         except subprocess .TimeoutExpired :
             logger .error (f"PowerShell command timed out: {command }")
@@ -172,7 +188,7 @@ class SystemHardener :
             success ,stdout ,stderr =self .run_powershell_command (check .check_command )
 
             if success :
-                actual_value =stdout 
+                actual_value =stdout
                 is_compliant =self ._compare_values (actual_value ,check .expected_value )
 
                 self .audit_results [check .name ]={
@@ -181,7 +197,7 @@ class SystemHardener :
                 'compliant':is_compliant ,
                 'expected':check .expected_value ,
                 'actual':actual_value ,
-                'error':None 
+                'error':None
                 }
             else :
                 self .audit_results [check .name ]={
@@ -194,7 +210,7 @@ class SystemHardener :
                 }
 
         logger .info (f"Audit complete: {len (self .audit_results )} checks performed")
-        return self .audit_results 
+        return self .audit_results
 
     def _compare_values (self ,actual :str ,expected :str )->bool :
         """Compare actual value with expected (flexible comparison)"""
@@ -202,14 +218,14 @@ class SystemHardener :
         expected_clean =expected .strip ().lower ()
 
         if actual_clean ==expected_clean :
-            return True 
+            return True
 
-        try :
-            return int (actual_clean )==int (expected_clean )
-        except :
-            pass 
+        try:
+            return int(actual_clean) == int(expected_clean)
+        except Exception:
+            pass
 
-        return False 
+        return False
 
     def harden_system (self ,checks_to_fix :Optional [List [str ]]=None )->Dict [str ,bool ]:
         """
@@ -227,29 +243,29 @@ class SystemHardener :
         if checks_to_fix is None :
             checks_to_fix =[
             name for name ,result in self .audit_results .items ()
-            if not result ['compliant']and result ['error']is None 
+            if not result ['compliant']and result ['error']is None
             ]
 
         for check in self .checks :
             if check .name not in checks_to_fix :
-                continue 
+                continue
 
             logger .info (f"Hardening: {check .name }")
 
             if not check .fix_command or check .fix_command .startswith ("#"):
                 logger .warning (f"No automated fix available for: {check .name }")
-                results [check .name ]=False 
-                continue 
+                results [check .name ]=False
+                continue
 
             success ,stdout ,stderr =self .run_powershell_command (check .fix_command )
-            results [check .name ]=success 
+            results [check .name ]=success
 
             if success :
                 logger .info (f"✓ Fixed: {check .name }")
             else :
                 logger .error (f"✗ Failed to fix: {check .name } - {stderr }")
 
-        return results 
+        return results
 
     def get_summary (self )->Dict [str ,int ]:
         """Get audit summary statistics"""
@@ -262,7 +278,7 @@ class SystemHardener :
             'critical':0 ,
             'high':0 ,
             'medium':0 ,
-            'low':0 
+            'low':0
             }
 
         summary ={
@@ -273,33 +289,33 @@ class SystemHardener :
         'critical':0 ,
         'high':0 ,
         'medium':0 ,
-        'low':0 
+        'low':0
         }
 
         for result in self .audit_results .values ():
             if result ['error']:
-                summary ['errors']+=1 
+                summary ['errors']+=1
             elif result ['compliant']:
-                summary ['compliant']+=1 
+                summary ['compliant']+=1
             else :
-                summary ['non_compliant']+=1 
+                summary ['non_compliant']+=1
 
             severity =result ['severity']
             if severity in summary :
                 if not result ['compliant']and not result ['error']:
-                    summary [severity ]+=1 
+                    summary [severity ]+=1
 
-        return summary 
+        return summary
 
     def get_compliance_score (self )->float :
         """Calculate overall compliance percentage"""
         if not self .audit_results :
-            return 0.0 
+            return 0.0
 
         compliant =sum (1 for r in self .audit_results .values ()if r ['compliant'])
         total =len (self .audit_results )
 
-        return (compliant /total )*100 if total >0 else 0.0 
+        return (compliant /total )*100 if total >0 else 0.0
 
     def generate_report (self )->str :
         """Generate a text report of audit results"""
@@ -321,7 +337,7 @@ class SystemHardener :
         report .append (f"Non-Compliant: {summary ['non_compliant']}")
         report .append (f"Errors: {summary ['errors']}")
         report .append ("")
-        report .append (f"Issues by Severity:")
+        report .append ("Issues by Severity:")
         report .append (f"  Critical: {summary ['critical']}")
         report .append (f"  High: {summary ['high']}")
         report .append (f"  Medium: {summary ['medium']}")

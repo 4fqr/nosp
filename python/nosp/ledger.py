@@ -21,15 +21,15 @@ Author: NOSP Team
 Contact: 4fqr5@atomicmail.io
 """
 
-import hashlib 
-import json 
-import time 
-from typing import Dict ,List ,Optional ,Tuple 
-from dataclasses import dataclass ,asdict 
-from datetime import datetime 
+import hashlib
+import json
+import time
+from typing import Dict ,List ,Optional ,Tuple
+from dataclasses import dataclass ,asdict
+from datetime import datetime
 
 
-@dataclass 
+@dataclass
 class Block :
     """
     A single block in the security audit ledger.
@@ -42,11 +42,11 @@ class Block :
         nonce: Proof-of-work nonce (difficulty=2 for speed)
         hash: SHA-256 hash of this block
     """
-    index :int 
-    timestamp :float 
-    event_data :Dict 
-    previous_hash :str 
-    nonce :int =0 
+    index :int
+    timestamp :float
+    event_data :Dict
+    previous_hash :str
+    nonce :int =0
     hash :str =""
 
 
@@ -70,8 +70,8 @@ class ImmutableLedger :
                        Default=2 for balance between security and speed
         """
         self .chain :List [Block ]=[]
-        self .difficulty =difficulty 
-        self .difficulty_target ="0"*difficulty 
+        self .difficulty =difficulty
+        self .difficulty_target ="0"*difficulty
 
         self ._create_genesis_block ()
 
@@ -91,7 +91,7 @@ class ImmutableLedger :
         timestamp =time .time (),
         event_data =genesis_data ,
         previous_hash ="0"*64 ,
-        nonce =0 
+        nonce =0
         )
 
         genesis_block .hash =self ._mine_block (genesis_block )
@@ -114,7 +114,7 @@ class ImmutableLedger :
         "timestamp":block .timestamp ,
         "event_data":block .event_data ,
         "previous_hash":block .previous_hash ,
-        "nonce":block .nonce 
+        "nonce":block .nonce
         },sort_keys =True )
 
         return hashlib .sha256 (block_string .encode ()).hexdigest ()
@@ -136,9 +136,9 @@ class ImmutableLedger :
             block_hash =self ._calculate_hash (block )
 
             if block_hash .startswith (self .difficulty_target ):
-                return block_hash 
+                return block_hash
 
-            block .nonce +=1 
+            block .nonce +=1
 
     def add_event (self ,event_data :Dict )->Block :
         """
@@ -172,14 +172,14 @@ class ImmutableLedger :
         timestamp =time .time (),
         event_data =event_data ,
         previous_hash =previous_block .hash ,
-        nonce =0 
+        nonce =0
         )
 
         new_block .hash =self ._mine_block (new_block )
 
         self .chain .append (new_block )
 
-        return new_block 
+        return new_block
 
     def validate_chain (self )->Tuple [bool ,Optional [str ]]:
         """
@@ -223,7 +223,7 @@ class ImmutableLedger :
             if not current_block .hash .startswith (self .difficulty_target ):
                 return False ,f"Block {i }: Invalid proof-of-work (hash doesn't meet difficulty)"
 
-        return True ,None 
+        return True ,None
 
     def get_chain_summary (self )->Dict :
         """
@@ -245,7 +245,7 @@ class ImmutableLedger :
         "latest_time":datetime .fromtimestamp (self .chain [-1 ].timestamp ).isoformat ()if self .chain else None ,
         "difficulty":self .difficulty ,
         "is_valid":is_valid ,
-        "validation_error":error 
+        "validation_error":error
         }
 
     def get_block (self ,index :int )->Optional [Block ]:
@@ -260,7 +260,7 @@ class ImmutableLedger :
         """
         if 0 <=index <len (self .chain ):
             return self .chain [index ]
-        return None 
+        return None
 
     def get_recent_blocks (self ,count :int =10 )->List [Block ]:
         """
@@ -296,23 +296,23 @@ class ImmutableLedger :
         try :
             imported_chain =[Block (**block_dict )for block_dict in chain_data ]
 
-            original_chain =self .chain 
-            self .chain =imported_chain 
+            original_chain =self .chain
+            self .chain =imported_chain
 
             is_valid ,error =self .validate_chain ()
 
             if not is_valid :
-                self .chain =original_chain 
-                return False 
+                self .chain =original_chain
+                return False
 
-            return True 
+            return True
 
         except (KeyError ,TypeError ,ValueError ):
-            self .chain =original_chain 
-            return False 
+            self .chain =original_chain
+            return False
 
 
-_ledger_instance :Optional [ImmutableLedger ]=None 
+_ledger_instance :Optional [ImmutableLedger ]=None
 
 
 def get_ledger ()->ImmutableLedger :
@@ -322,10 +322,10 @@ def get_ledger ()->ImmutableLedger :
     Returns:
         Global ImmutableLedger instance
     """
-    global _ledger_instance 
+    global _ledger_instance
     if _ledger_instance is None :
         _ledger_instance =ImmutableLedger (difficulty =2 )
-    return _ledger_instance 
+    return _ledger_instance
 
 
 def log_security_event (event_type :str ,**kwargs )->Block :
@@ -347,7 +347,7 @@ def log_security_event (event_type :str ,**kwargs )->Block :
     event_data ={
     "event_type":event_type ,
     "timestamp_readable":datetime .now ().isoformat (),
-    **kwargs 
+    **kwargs
     }
 
     return ledger .add_event (event_data )
@@ -402,7 +402,7 @@ if __name__ =="__main__":
 
     print ("\n"+"="*60 )
     print ("Simulating attacker tampering with Block 2...")
-    ledger .chain [2 ].event_data ["risk"]=10 
+    ledger .chain [2 ].event_data ["risk"]=10
 
     is_valid ,error =ledger .validate_chain ()
     if not is_valid :

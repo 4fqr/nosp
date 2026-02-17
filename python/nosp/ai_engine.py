@@ -3,20 +3,21 @@ NOSP AI Module
 Handles Ollama integration with automatic model management and threat analysis.
 """
 
-import subprocess 
-import logging 
-from typing import Dict ,Optional 
-import time 
+import logging
+from typing import Dict, Optional
+import time
+from .errors import report_exception, graceful, Result
 
-logging .basicConfig (level =logging .INFO )
-logger =logging .getLogger (__name__ )
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-try :
-    import ollama 
-    OLLAMA_AVAILABLE =True 
-except ImportError :
-    OLLAMA_AVAILABLE =False 
-    logger .warning ("⚠ Ollama package not installed. AI features will be limited.")
+try:
+    import ollama
+    OLLAMA_AVAILABLE = True
+except ImportError as e:
+    OLLAMA_AVAILABLE = False
+    logger.warning("⚠ Ollama package not installed. AI features will be limited.")
+    report_exception(e, context="ai_engine_import")
 
 
 class NOSPAIEngine :
@@ -32,13 +33,13 @@ class NOSPAIEngine :
         Args:
             model_name: Name of the Ollama model to use (default: llama3)
         """
-        self .model_name =model_name 
-        self .model_ready =False 
-        self .ollama_running =False 
+        self .model_name =model_name
+        self .model_ready =False
+        self .ollama_running =False
 
         if not OLLAMA_AVAILABLE :
             logger .error ("✗ Ollama package not available. Install with: pip install ollama")
-            return 
+            return
 
         self ._check_ollama_service ()
         if self .ollama_running :
@@ -48,15 +49,16 @@ class NOSPAIEngine :
         """Check if Ollama service is running."""
         try :
             ollama .list ()
-            self .ollama_running =True 
+            self .ollama_running =True
             logger .info ("✓ Ollama service is running")
-            return True 
-        except Exception as e :
-            logger .error (f"✗ Ollama service not accessible: {e }")
-            logger .error ("  Please ensure Ollama is installed and running.")
-            logger .error ("  Download from: https://ollama.ai")
-            self .ollama_running =False 
-            return False 
+            return True
+        except Exception as e:
+            logger.error(f"✗ Ollama service not accessible: {e}")
+            logger.error("  Please ensure Ollama is installed and running.")
+            logger.error("  Download from: https://ollama.ai")
+            report_exception(e, context="ai_engine_check_service")
+            self.ollama_running = False
+            return False
 
     def _ensure_model_available (self )->bool :
         """
@@ -71,8 +73,8 @@ class NOSPAIEngine :
 
             if model_found :
                 logger .info (f"✓ Model '{self .model_name }' is available")
-                self .model_ready =True 
-                return True 
+                self .model_ready =True
+                return True
 
             logger .info (f"⟳ Model '{self .model_name }' not found. Pulling from Ollama...")
             logger .info ("  This may take a few minutes depending on your connection...")
@@ -80,16 +82,18 @@ class NOSPAIEngine :
             try :
                 ollama .pull (self .model_name )
                 logger .info (f"✓ Model '{self .model_name }' pulled successfully")
-                self .model_ready =True 
-                return True 
-            except Exception as pull_error :
-                logger .error (f"✗ Failed to pull model: {pull_error }")
-                logger .error ("  Please run manually: ollama pull llama3")
-                return False 
+                self .model_ready =True
+                return True
+            except Exception as pull_error:
+                logger.error(f"✗ Failed to pull model: {pull_error}")
+                logger.error("  Please run manually: ollama pull llama3")
+                report_exception(pull_error, context="ai_engine_pull_model")
+                return False
 
-        except Exception as e :
-            logger .error (f"✗ Failed to check model availability: {e }")
-            return False 
+        except Exception as e:
+            logger.error(f"✗ Failed to check model availability: {e}")
+            report_exception(e, context="ai_engine_ensure_model")
+            return False
 
     def analyze_process (self ,event :Dict )->Optional [str ]:
         """
@@ -114,7 +118,7 @@ class NOSPAIEngine :
             'content':'You are a cybersecurity expert analyzing Windows process events for potential threats. Provide concise, actionable analysis.'
             },{
             'role':'user',
-            'content':prompt 
+            'content':prompt
             }]
             )
 
@@ -123,11 +127,16 @@ class NOSPAIEngine :
             mitre_info =self ._parse_mitre_attack (analysis )
 
             logger .info (f"✓ AI analysis completed for process: {event .get ('image','unknown')}")
-            return analysis 
+            return analysis
 
-        except Exception as e :
-            logger .error (f"✗ AI analysis failed: {e }")
-            return f"⚠ Analysis error: {str (e )}"
+        except Exception as e:
+            logger.error(f"✗ AI analysis failed: {e}")
+            report_exception(e, context="ai_engine_analyze_process")
+            return f"⚠ Analysis error: {str(e)}"
+
+    @graceful()
+    def analyze_process_safe(self, event: Dict) -> Result:
+        return self.analyze_process(event)
 
     def _parse_mitre_attack (self ,analysis_text :str )->Dict :
         """
@@ -139,12 +148,12 @@ class NOSPAIEngine :
         Returns:
             Dictionary with tactic, technique, and threat level
         """
-        import re 
+        import re
 
         result ={
         'tactic':None ,
         'technique':None ,
-        'threat_level':None 
+        'threat_level':None
         }
 
         tactic_match =re .search (r'MITRE_TACTIC:\s*([^\n]+)',analysis_text ,re .IGNORECASE )
@@ -159,7 +168,7 @@ class NOSPAIEngine :
         if threat_match :
             result ['threat_level']=threat_match .group (1 ).strip ()
 
-        return result 
+        return result
 
     def _build_analysis_prompt (self ,event :Dict )->str :
         """Build a detailed prompt for AI analysis."""
@@ -212,10 +221,10 @@ Be specific about MITRE ATT&CK techniques. Use exact technique IDs."""
             if event_id :
                 analysis =self .analyze_process (event )
                 if analysis :
-                    results [event_id ]=analysis 
+                    results [event_id ]=analysis
                 time .sleep (0.5 )
 
-        return results 
+        return results
 
     def get_status (self )->Dict [str ,any ]:
         """Get current AI engine status."""
@@ -223,5 +232,5 @@ Be specific about MITRE ATT&CK techniques. Use exact technique IDs."""
         'ollama_installed':OLLAMA_AVAILABLE ,
         'ollama_running':self .ollama_running ,
         'model_ready':self .model_ready ,
-        'model_name':self .model_name 
+        'model_name':self .model_name
         }

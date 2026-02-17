@@ -3,21 +3,20 @@ NOSP Forensics Module
 Advanced forensic analysis, process tree visualization, and PDF report generation.
 """
 
-import networkx as nx 
-from typing import Dict ,List ,Tuple ,Optional 
-from datetime import datetime ,timedelta 
-import json 
-from pathlib import Path 
-import logging 
+import networkx as nx
+from typing import Dict ,List
+from datetime import datetime ,timedelta
+from pathlib import Path
+import logging
 
 logging .basicConfig (level =logging .INFO )
 logger =logging .getLogger (__name__ )
 
 try :
-    from fpdf import FPDF 
-    PDF_AVAILABLE =True 
+    from fpdf import FPDF
+    PDF_AVAILABLE =True
 except ImportError :
-    PDF_AVAILABLE =False 
+    PDF_AVAILABLE =False
     logger .warning ("⚠ FPDF not available. Install with: pip install fpdf2")
 
 
@@ -52,13 +51,13 @@ class ProcessTree :
         process_id ,
         label =Path (image ).name ,
         risk =risk_score ,
-        full_path =image 
+        full_path =image
         )
 
         for pid ,data in self .process_data .items ():
             if data ['image'].lower ()in parent_image .lower ()and pid !=process_id :
                 self .graph .add_edge (pid ,process_id )
-                break 
+                break
 
     def get_tree_data (self )->Dict :
         """Get tree data for visualization."""
@@ -76,7 +75,7 @@ class ProcessTree :
         for source ,target in self .graph .edges ():
             edges .append ({
             'source':source ,
-            'target':target 
+            'target':target
             })
 
         return {'nodes':nodes ,'edges':edges }
@@ -92,21 +91,21 @@ class ProcessTree :
                     for root in roots :
                         if nx .has_path (self .graph ,root ,node ):
                             path =nx .shortest_path (self .graph ,root ,node )
-                            if len (path )>1 :
-                                suspicious .append (path )
-                except :
-                    pass 
+                            if len(path) > 1:
+                                suspicious.append(path)
+                except Exception:
+                    pass
 
-        return suspicious 
+        return suspicious
 
     def get_process_lineage (self ,pid :int )->List [Dict ]:
         """Get the full lineage of a process."""
         lineage =[]
 
         if pid not in self .process_data :
-            return lineage 
+            return lineage
 
-        current =pid 
+        current =pid
         visited =set ()
 
         while current and current not in visited :
@@ -116,11 +115,11 @@ class ProcessTree :
 
                 for edge in self .graph .in_edges (current ):
                     current =edge [0 ]
-                    break 
+                    break
                 else :
-                    break 
+                    break
             else :
-                break 
+                break
 
         return lineage [::-1 ]
 
@@ -172,7 +171,7 @@ class ForensicReporter :
         f"High-Risk Events: {stats .get ('high_risk_events',0 )}",
         f"Critical Threats: {len ([e for e in events if e .get ('risk_score',0 )>=75 ])}",
         f"Average Risk Score: {stats .get ('avg_risk_score',0 ):.2f}",
-        f"Time Period: Last 24 hours"
+        "Time Period: Last 24 hours"
         ]
 
         for line in summary_data :
@@ -238,7 +237,7 @@ class ForensicReporter :
         pdf .output (output_path )
 
         logger .info (f"✓ PDF report generated: {output_path }")
-        return output_path 
+        return output_path
 
     def _generate_recommendations (self ,events :List [Dict ],stats :Dict )->List [str ]:
         """Generate security recommendations based on events."""
@@ -276,7 +275,7 @@ class ForensicReporter :
         "Conduct security awareness training for users showing risky behavior."
         ])
 
-        return recommendations 
+        return recommendations
 
 
 class TimelineAnalyzer :
@@ -293,47 +292,47 @@ class TimelineAnalyzer :
         distribution ={hour :0 for hour in range (24 )}
 
         for event in self .events :
-            try :
-                timestamp =event .get ('timestamp','')
-                if timestamp :
-                    hour =datetime .fromisoformat (timestamp ).hour 
-                    distribution [hour ]+=1 
-            except :
-                pass 
+            try:
+                timestamp = event.get('timestamp', '')
+                if timestamp:
+                    hour = datetime.fromisoformat(timestamp).hour
+                    distribution[hour] += 1
+            except Exception:
+                pass
 
-        return distribution 
+        return distribution
 
     def detect_burst_activity (self ,window_minutes :int =5 ,threshold :int =10 )->List [Dict ]:
         """Detect burst activity (many events in short time)."""
         bursts =[]
 
         if not self .events :
-            return bursts 
+            return bursts
 
         window =timedelta (minutes =window_minutes )
 
         for i ,event in enumerate (self .events ):
-            try :
-                event_time =datetime .fromisoformat (event .get ('timestamp',''))
-                count =1 
+try:
+                    event_time = datetime.fromisoformat(event.get('timestamp', ''))
+                    count = 1
 
-                for j in range (i +1 ,len (self .events )):
-                    next_time =datetime .fromisoformat (self .events [j ].get ('timestamp',''))
-                    if next_time -event_time <=window :
-                        count +=1 
-                    else :
-                        break 
+                    for j in range(i + 1, len(self.events)):
+                        next_time = datetime.fromisoformat(self.events[j].get('timestamp', ''))
+                        if next_time - event_time <= window:
+                            count += 1
+                        else:
+                            break
 
-                if count >=threshold :
-                    bursts .append ({
-                    'timestamp':event .get ('timestamp'),
-                    'count':count ,
-                    'window_minutes':window_minutes 
-                    })
-            except :
-                pass 
+                    if count >= threshold:
+                        bursts.append({
+                            'timestamp': event.get('timestamp'),
+                            'count': count,
+                            'window_minutes': window_minutes,
+                        })
+                except Exception:
+                    pass
 
-        return bursts 
+        return bursts
 
     def find_process_sequences (self ,process_names :List [str ])->List [List [Dict ]]:
         """Find sequences where specific processes appear in order."""
@@ -346,16 +345,16 @@ class TimelineAnalyzer :
 
             if image ==process_names_lower [0 ]:
                 sequence =[event ]
-                next_idx =1 
+                next_idx =1
 
                 for j in range (i +1 ,min (i +100 ,len (self .events ))):
                     next_image =Path (self .events [j ].get ('image','')).name .lower ()
                     if next_image ==process_names_lower [next_idx ]:
                         sequence .append (self .events [j ])
-                        next_idx +=1 
+                        next_idx +=1
 
                         if next_idx >=len (process_names_lower ):
                             sequences .append (sequence )
-                            break 
+                            break
 
-        return sequences 
+        return sequences

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::fs::{File, metadata};
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::SystemTime;
 use sha2::{Sha256, Digest};
 use serde::{Serialize, Deserialize};
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_fim_database() {
-        let mut db = FIMDatabase::new();
+        let db = FIMDatabase::new();
         assert_eq!(db.snapshots.len(), 0);
     }
 

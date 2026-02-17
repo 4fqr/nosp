@@ -35,33 +35,29 @@ Author: NOSP Team
 Contact: 4fqr5@atomicmail.io
 """
 
-import os 
-import sys 
-import time 
-import psutil 
-import shutil 
-import tempfile 
-import subprocess 
-import threading 
-import hashlib 
-from typing import Dict ,List ,Optional ,Tuple 
-from dataclasses import dataclass ,asdict 
-from datetime import datetime 
-from pathlib import Path 
-import logging 
+import os
+import sys
+import time
+import psutil
+import shutil
+import tempfile
+import subprocess
+import threading
+import hashlib
+from typing import Dict ,List ,Optional
+from dataclasses import dataclass
+from pathlib import Path
+import logging
+from .errors import report_exception, graceful, Result
 
-if sys .platform =='win32':
-    import win32api 
-    import win32con 
-    import win32process 
-    import win32security 
-    import winreg 
+if sys .platform == 'win32':
+    pass
 
-logging .basicConfig (level =logging .INFO )
-logger =logging .getLogger (__name__ )
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-@dataclass 
+@dataclass
 class BehaviorEvent :
     """
     A single behavioral event observed during sandbox execution.
@@ -72,13 +68,13 @@ class BehaviorEvent :
         details: Event-specific details
         risk_contribution: How much this behavior adds to risk score
     """
-    timestamp :float 
-    event_type :str 
-    details :Dict 
-    risk_contribution :int 
+    timestamp :float
+    event_type :str
+    details :Dict
+    risk_contribution :int
 
 
-@dataclass 
+@dataclass
 class SandboxResult :
     """
     Complete analysis result from sandbox detonation.
@@ -95,16 +91,16 @@ class SandboxResult :
         stdout: Captured standard output
         stderr: Captured standard error
     """
-    file_path :str 
-    file_hash :str 
-    execution_time :float 
+    file_path :str
+    file_hash :str
+    execution_time :float
     exit_code :Optional [int ]
-    was_terminated :bool 
+    was_terminated :bool
     behaviors :List [BehaviorEvent ]
-    risk_score :int 
-    verdict :str 
-    stdout :str 
-    stderr :str 
+    risk_score :int
+    verdict :str
+    stdout :str
+    stderr :str
 
 
 class Cage :
@@ -126,12 +122,12 @@ class Cage :
         Args:
             execution_timeout: Maximum execution time in seconds (default: 15)
         """
-        self .execution_timeout =execution_timeout 
+        self .execution_timeout =execution_timeout
         self .cage_dir =Path (tempfile .gettempdir ())/"nosp_cage"
         self .cage_dir .mkdir (exist_ok =True )
 
         self .behaviors :List [BehaviorEvent ]=[]
-        self .process :Optional [psutil .Process ]=None 
+        self .process :Optional [psutil .Process ]=None
         self .process_tree :List [psutil .Process ]=[]
 
         logger .info (f"Cage initialized: {self .cage_dir }")
@@ -163,15 +159,15 @@ class Cage :
             Path to file inside cage
         """
         cage_id =hashlib .md5 (f"{file_path }{time .time ()}".encode ()).hexdigest ()[:8 ]
-        execution_dir =self .cage_dir /cage_id 
+        execution_dir =self .cage_dir /cage_id
         execution_dir .mkdir (exist_ok =True )
 
-        file_name =Path (file_path ).name 
-        caged_file =execution_dir /file_name 
+        file_name =Path (file_path ).name
+        caged_file =execution_dir /file_name
         shutil .copy2 (file_path ,caged_file )
 
         logger .info (f"File caged: {caged_file }")
-        return caged_file 
+        return caged_file
 
     def _monitor_process_behavior (self ,pid :int ):
         """
@@ -195,10 +191,10 @@ class Cage :
                             self ._log_behavior (
                             "file_access",
                             {"path":file .path },
-                            risk_contribution =10 
+                            risk_contribution =10
                             )
                 except (psutil .AccessDenied ,psutil .NoSuchProcess ):
-                    pass 
+                    pass
 
                 try :
                     children =self .process .children (recursive =True )
@@ -208,10 +204,10 @@ class Cage :
                             self ._log_behavior (
                             "child_process",
                             {"pid":child .pid ,"name":child .name ()},
-                            risk_contribution =15 
+                            risk_contribution =15
                             )
                 except (psutil .AccessDenied ,psutil .NoSuchProcess ):
-                    pass 
+                    pass
 
                 try :
                     connections =self .process .connections ()
@@ -221,12 +217,12 @@ class Cage :
                             "network_connection",
                             {
                             "remote_ip":conn .raddr .ip if conn .raddr else "unknown",
-                            "remote_port":conn .raddr .port if conn .raddr else 0 
+                            "remote_port":conn .raddr .port if conn .raddr else 0
                             },
-                            risk_contribution =20 
+                            risk_contribution =20
                             )
                 except (psutil .AccessDenied ,psutil .NoSuchProcess ):
-                    pass 
+                    pass
 
                 try :
                     current_threads =self .process .num_threads ()
@@ -234,18 +230,20 @@ class Cage :
                         self ._log_behavior (
                         "thread_injection",
                         {"thread_count":current_threads },
-                        risk_contribution =25 
+                        risk_contribution =25
                         )
-                        initial_threads =current_threads 
+                        initial_threads =current_threads
                 except (psutil .AccessDenied ,psutil .NoSuchProcess ):
-                    pass 
+                    pass
 
                 time .sleep (0.5 )
 
         except psutil .NoSuchProcess :
             logger .debug ("Process terminated during monitoring")
-        except Exception as e :
-            logger .error (f"Monitoring error: {e }")
+        except Exception as e:
+            logger.error(f"Monitoring error: {e}")
+            from .errors import report_exception
+            report_exception(e, context="Cage._monitor_process_behavior")
 
     def _is_sensitive_path (self ,path :str )->bool :
         """
@@ -281,7 +279,7 @@ class Cage :
         timestamp =time .time (),
         event_type =event_type ,
         details =details ,
-        risk_contribution =risk_contribution 
+        risk_contribution =risk_contribution
         )
 
         self .behaviors .append (event )
@@ -295,17 +293,17 @@ class Cage :
             Risk score (0-100)
         """
         if not self .behaviors :
-            return 0 
+            return 0
 
         total_risk =sum (b .risk_contribution for b in self .behaviors )
 
         behavior_types =set (b .event_type for b in self .behaviors )
 
         if 'network_connection'in behavior_types and 'file_access'in behavior_types :
-            total_risk +=20 
+            total_risk +=20
 
         if 'child_process'in behavior_types and 'thread_injection'in behavior_types :
-            total_risk +=30 
+            total_risk +=30
 
         return min (total_risk ,100 )
 
@@ -336,8 +334,10 @@ class Cage :
         try :
             shutil .rmtree (execution_dir )
             logger .info (f"Cage cleaned: {execution_dir }")
-        except Exception as e :
-            logger .error (f"Cleanup error: {e }")
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
+            from .errors import report_exception
+            report_exception(e, context="Cage._cleanup_cage")
 
     def detonate_file (self ,file_path :str )->SandboxResult :
         """
@@ -353,7 +353,9 @@ class Cage :
             FileNotFoundError: If file doesn't exist
             PermissionError: If insufficient permissions
         """
+
         if not os .path .exists (file_path ):
+            raise FileNotFoundError (f"File not found: {file_path }")
             raise FileNotFoundError (f"File not found: {file_path }")
 
         logger .info (f"Detonating file: {file_path }")
@@ -368,8 +370,8 @@ class Cage :
         start_time =time .time ()
         stdout_capture =""
         stderr_capture =""
-        exit_code =None 
-        was_terminated =False 
+        exit_code =None
+        was_terminated =False
 
         try :
             if sys .platform =='win32':
@@ -378,20 +380,20 @@ class Cage :
                 cwd =str (caged_file .parent ),
                 stdout =subprocess .PIPE ,
                 stderr =subprocess .PIPE ,
-                creationflags =subprocess .CREATE_NEW_CONSOLE 
+                creationflags =subprocess .CREATE_NEW_CONSOLE
                 )
             else :
                 process =subprocess .Popen (
                 [str (caged_file )],
                 cwd =str (caged_file .parent ),
                 stdout =subprocess .PIPE ,
-                stderr =subprocess .PIPE 
+                stderr =subprocess .PIPE
                 )
 
             monitor_thread =threading .Thread (
             target =self ._monitor_process_behavior ,
             args =(process .pid ,),
-            daemon =True 
+            daemon =True
             )
             monitor_thread .start ()
 
@@ -399,9 +401,9 @@ class Cage :
                 stdout_data ,stderr_data =process .communicate (timeout =self .execution_timeout )
                 stdout_capture =stdout_data .decode ('utf-8',errors ='ignore')
                 stderr_capture =stderr_data .decode ('utf-8',errors ='ignore')
-                exit_code =process .returncode 
+                exit_code =process .returncode
             except subprocess .TimeoutExpired :
-                logger .warning (f"Process exceeded timeout, terminating...")
+                logger .warning ("Process exceeded timeout, terminating...")
                 process .kill ()
 
                 try :
@@ -409,28 +411,30 @@ class Cage :
                         for child in self .process .children (recursive =True ):
                             try :
                                 child .kill ()
-                            except :
-                                pass 
+                            except Exception:
+                                pass
                         self .process .kill ()
-                except :
-                    pass 
+                except Exception:
+                    pass
 
-                was_terminated =True 
+                was_terminated =True
 
                 try :
-                    stdout_data ,stderr_data =process .communicate (timeout =1 )
-                    stdout_capture =stdout_data .decode ('utf-8',errors ='ignore')
-                    stderr_capture =stderr_data .decode ('utf-8',errors ='ignore')
-                except :
-                    pass 
+                    stdout_data, stderr_data = process.communicate(timeout=1)
+                    stdout_capture = stdout_data.decode('utf-8', errors='ignore')
+                    stderr_capture = stderr_data.decode('utf-8', errors='ignore')
+                except Exception:
+                    pass
 
             monitor_thread .join (timeout =2 )
 
-        except Exception as e :
-            logger .error (f"Detonation error: {e }")
-            self ._log_behavior ("execution_error",{"error":str (e )},risk_contribution =5 )
+        except Exception as e:
+            logger.error(f"Detonation error: {e}")
+            from .errors import report_exception
+            report_exception(e, context="Cage.detonate_file")
+            self._log_behavior("execution_error", {"error": str(e)}, risk_contribution=5)
 
-        execution_time =time .time ()-start_time 
+        execution_time =time .time ()-start_time
 
         risk_score =self ._calculate_risk_score ()
         verdict =self ._determine_verdict (risk_score )
@@ -451,7 +455,12 @@ class Cage :
         self ._cleanup_cage (caged_file .parent )
 
         logger .info (f"Detonation complete: {verdict } (risk: {risk_score }/100)")
-        return result 
+        return result
+
+    @graceful()
+    def detonate_file_safe(self, file_path: str) -> Result:
+        """Safe wrapper for detonate_file (returns Result)."""
+        return self.detonate_file(file_path)
 
     def detonate_command (self ,command :str ,args :List [str ]=None )->SandboxResult :
         """
@@ -465,7 +474,7 @@ class Cage :
             SandboxResult with analysis
         """
         cage_id =hashlib .md5 (f"{command }{time .time ()}".encode ()).hexdigest ()[:8 ]
-        execution_dir =self .cage_dir /cage_id 
+        execution_dir =self .cage_dir /cage_id
         execution_dir .mkdir (exist_ok =True )
 
         if sys .platform =='win32':
@@ -482,10 +491,10 @@ class Cage :
 
         result =self .detonate_file (str (script_path ))
 
-        return result 
+        return result
 
 
-_cage_instance :Optional [Cage ]=None 
+_cage_instance :Optional [Cage ]=None
 
 
 def get_cage ()->Cage :
@@ -495,10 +504,10 @@ def get_cage ()->Cage :
     Returns:
         Global Cage instance
     """
-    global _cage_instance 
+    global _cage_instance
     if _cage_instance is None :
         _cage_instance =Cage ()
-    return _cage_instance 
+    return _cage_instance
 
 
 if __name__ =="__main__":
@@ -564,10 +573,12 @@ ping -c 1 8.8.8.8
         if result .stderr :
             print (f"\nStderr:\n{result .stderr }")
 
-    except Exception as e :
-        print (f"Error: {e }")
+    except Exception as e:
+        print(f"Error: {e}")
+        from .errors import report_exception
+        report_exception(e, context="cage_demo")
 
-    finally :
-        shutil .rmtree (test_dir )
-        print (f"\n{'='*60 }")
-        print ("Demo complete")
+    finally:
+        shutil.rmtree(test_dir)
+        print(f"\n{'='*60}")
+        print("Demo complete")
