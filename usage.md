@@ -89,14 +89,24 @@ sudo python main.py
 
 ### Safe / developer-facing APIs
 
-- Many public APIs expose a `*_safe` variant that returns a `Result` object instead of raising an exception. The `Result` object has `ok` (bool) and either `value` or `error` fields.
-- Use `*_safe` when you require deterministic, programmatic handling of failures. Unexpected exceptions are written to `nosp_error.log` in the working directory.
+- Many public APIs expose a `*_safe` variant that returns a `Result` object that has `success`/`value`/`message` fields for deterministic, programmatic error handling.
+- Use `*_safe` when you require deterministic handling of failures; unhandled exceptions are written to `nosp_error.log`.
 
 Example:
 ```python
 res = usb_control.block_device_safe("VID_1234&PID_5678")
-if not res.ok:
-    print(res.error['message'])
+if not res.success:
+    print(res.message)
+```
+
+#### Privileged integrations & tests
+
+- Packet capture/injection, firewall edits and registry protections require elevated privileges.
+- Privileged integration tests are provided but disabled by default. To run them on a privileged VM or self-hosted runner:
+
+```bash
+export RUN_PRIV_TESTS=1
+pytest tests/test_integration_privileged.py
 ```
 
 ### Platform Compatibility Module

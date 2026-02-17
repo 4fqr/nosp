@@ -9,7 +9,7 @@ __version__ = "0.1.0"
 
 from .errors import Result, NospError, graceful, ensure_no_raise, report_exception  # re-export helpers
 
-__all__ = ['database', 'ai_engine', 'risk_scorer', 'native_bindings', 'Result', 'NospError']
+__all__ = ['database', 'ai_engine', 'risk_scorer', 'native_bindings', 'linux_compat', 'platform_compat', 'Result', 'NospError']
 
 # Register structured exception hook for uncaught exceptions
 import sys

@@ -43,6 +43,9 @@ dev = [
 python-source = "python"
 module-name = "nosp.nosp_core"
 
+[project.scripts]
+# console entry point so `nosp` is available after `pip install .`
+nosp = "nosp.cli:main"
 [tool.ruff]
 line-length = 120
 extend-select = ["E", "F", "W"]

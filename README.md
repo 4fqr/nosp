@@ -99,21 +99,31 @@ Recommended model for NOSP: `mistral-small` — a compact, low‑latency model t
 
 ### Command Line
 
-A small, purpose‑built CLI is available for headless use. Use `python -m nosp.cli` or the legacy `python main.py` entry points for simple tasks.
+A small, purpose‑built CLI is available for headless use. After installing the package (`pip install .`) the `nosp` command will be available system-wide. Use `python -m nosp.cli` or `nosp` for local, headless operations.
 
 ```bash
+# After pip install, run as `nosp` (or use python -m nosp.cli)
 # Initialize database
-python -m nosp.cli init-db --db ./nosp.db
+nosp init-db --db ./nosp.db
 
 # Run a heuristic process scan (top 10 suspicious)
-python -m nosp.cli scan --top 10
+nosp scan --top 10
 
 # Run AI analysis for a running PID (best-effort)
-python -m nosp.cli analyze --pid 1234
+nosp analyze --pid 1234
 
 # Watch for new processes and report suspicious ones
-python -m nosp.cli watch --duration 60
+nosp watch --duration 60
 ```
+
+Privileged integration tests (packet capture/injection, firewall) are provided but are disabled by default. To run them on a privileged VM or self-hosted runner, set:
+
+```bash
+export RUN_PRIV_TESTS=1
+pytest tests/test_integration_privileged.py
+```
+
+See the Guide for instructions on configuring a privileged test runner.
 ### Python Module
 
 ```python

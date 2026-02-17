@@ -1041,12 +1041,12 @@ sudo ufw enable
 
 ### Developer / Testing
 
-- Run Python unit tests: `pytest -q` (Python tests cover non-privileged code paths; current suite contains 30 tests).
+- Run unit tests: `pytest -q` (unit tests cover non-privileged code paths; current suite: 33 tests).
+- Privileged integration tests (packet capture/injector, firewall, registry) require a privileged VM or self-hosted runner. They are disabled by default; enable with `export RUN_PRIV_TESTS=1` and run `pytest tests/test_integration_privileged.py`.
 - Build Rust library: `cargo build --release`.
 - Build/install Python extension: `maturin develop` (requires Python dev headers).
-- If pyo3 tests fail locally, set `PYTHON_SYS_EXECUTABLE=$(which python3)` prior to `cargo test` or rely on CI where this is configured.
-- CI: GitHub Actions executes linting, Python unit tests, Rust build, and pyo3-linked checks on both Linux and Windows.
-
+- Local pyo3 tests: set `PYTHON_SYS_EXECUTABLE=$(which python3)` before `cargo test` if needed; CI sets this automatically.
+- CI: GitHub Actions runs cross-platform builds/tests on Ubuntu and Windows; add a self-hosted privileged runner to enable privileged integration jobs.
 ### Support Resources
 
 - GitHub Issues: https://github.com/4fqr/nosp/issues
